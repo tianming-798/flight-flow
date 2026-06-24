@@ -1,0 +1,5 @@
+import Dexie,{type EntityTable}from'dexie';import{defaultRules,defaultSubjects,emptyBaseOutputs,newSession}from'./data';import type{EnvironmentRule,FlightSession,PhaseOutput,TrainingSubject}from'./types';
+interface Setting{key:string;value:PhaseOutput[]}
+class FlightDatabase extends Dexie{sessions!:EntityTable<FlightSession,'id'>;rules!:EntityTable<EnvironmentRule,'id'>;subjects!:EntityTable<TrainingSubject,'id'>;settings!:EntityTable<Setting,'key'>;constructor(){super('flight-flow-db');this.version(1).stores({sessions:'id',rules:'id,name,enabled',subjects:'id,name',settings:'key'})}}
+export const db=new FlightDatabase();
+export async function bootstrapData(){if(!await db.sessions.get('current'))await db.sessions.put(newSession());if(await db.rules.count()===0)await db.rules.bulkPut(defaultRules);if(await db.subjects.count()===0)await db.subjects.bulkPut(defaultSubjects);if(!await db.settings.get('baseOutputs'))await db.settings.put({key:'baseOutputs',value:emptyBaseOutputs})}
