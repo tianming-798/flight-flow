@@ -1,16 +1,16 @@
 import {useEffect,useMemo,useRef,useState,type ReactNode}from'react';
-import{AlertTriangle,ArrowLeft,ArrowRight,BookOpen,Check,ChevronRight,CloudSun,Download,Edit3,LayoutGrid,ListChecks,Plus,RotateCcw,Search,Settings2,ShieldAlert,Trash2,Upload,X}from'lucide-react';
+import{AlertTriangle,ArrowLeft,ArrowRight,BookOpen,Check,ChevronRight,CloudSun,Download,Edit3,Plane,LayoutGrid,ListChecks,Plus,RotateCcw,Search,Settings2,ShieldAlert,Trash2,Upload,X}from'lucide-react';
 import{pinyin}from'pinyin-pro';
 import{bootstrapData,db}from'./db';
-import{emptyBaseOutputs,fieldLabels,newSession,operatorLabels,phases}from'./data';
+import{APP_UPDATED_AT,APP_VERSION,emptyBaseOutputs,fieldLabels,newSession,operatorLabels,phases}from'./data';
 import{activeRules,aggregatePhaseItems,windComponents}from'./rules';
-import type{AppBackup,ConditionGroup,EnvironmentData,EnvironmentField,EnvironmentRule,FlightSession,FlowItem,PhaseOutput,Severity,TrainingSubject}from'./types';
+import type{AppBackup,ConditionGroup,DisplayItem,EnvironmentData,EnvironmentField,EnvironmentRule,FlightSession,FlowItem,PhaseOutput,Severity,TrainingSubject}from'./types';
 
 const uid=(prefix='id')=>prefix+'-'+crypto.randomUUID();
 const now=()=>new Date().toISOString();
 const clone=<T,>(v:T):T=>structuredClone(v);
 const severityLabel:Record<Severity,string>={info:'信息',caution:'注意',critical:'关键'};
-const numericFields=new Set(['temperature','windDirection','windSpeed','gust','visibility','runwayHeading','crosswind','headwind']);
+const numericFields=new Set(['temperature','windDirection','windSpeed','gust','visibility','runwayHeading','fuelTons','zeroFuelWeightTons','crosswind','headwind']);
 
 function Modal({title,onClose,children,wide=false}:{title:string;onClose:()=>void;children:ReactNode;wide?:boolean}){
  return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section className={'modal '+(wide?'modal-wide':'')}><header><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="关闭"><X/></button></header><div className="modal-body">{children}</div></section></div>
@@ -37,17 +37,32 @@ function OutputEditor({outputs,phaseId,onChange}:{outputs:PhaseOutput[];phaseId:
 function EnvironmentModal({value,onChange,onClose}:{value:EnvironmentData;onChange:(v:EnvironmentData)=>void;onClose:()=>void}){
  const set=(key:keyof EnvironmentData,raw:string,numeric=false)=>{const next={...value};if(raw==='')delete next[key];else (next as Record<string,unknown>)[key]=numeric?Number(raw):raw;onChange(next)};
  const comp=windComponents(value);
- return <Modal title="环境与跑道条件" onClose={onClose} wide><p className="hint">所有字段均为选填。只填写本次运行中有意义的信息，空字段不会参与任何规则。</p>
+ const mode=value.temperature===undefined?'未判定':value.temperature>30?'高温运行':value.temperature<=0?'冬季运行':'常规运行';
+ const modeTone=mode==='高温运行'||mode==='冬季运行'?'caution':'active';
+ return <Modal title="环境条件与飞机信息" onClose={onClose} wide><p className="hint">所有字段均为选填。系统只根据已经填写的关键数据触发提示；空字段不判断、不报错、不阻止推进。</p>
+  <div className="mode-strip"><span>运行方式</span><Pill tone={modeTone}>{mode}</Pill><small>按气温自动判断：&gt;30℃ 高温；≤0℃ 冬季；其余常规。</small></div>
+  <h3 className="form-section-title">飞机信息</h3>
+  <div className="form-grid">
+   <label>机型<input value={value.aircraftType??''} onChange={e=>set('aircraftType',e.target.value)} placeholder="A320"/></label>
+   <label>油量 吨<input type="number" min="0" step="0.1" value={value.fuelTons??''} onChange={e=>set('fuelTons',e.target.value,true)} placeholder="8.5"/></label>
+   <label>0 燃油重量 吨<input type="number" min="0" step="0.1" value={value.zeroFuelWeightTons??''} onChange={e=>set('zeroFuelWeightTons',e.target.value,true)} placeholder="56.0"/></label>
+  </div>
+  <h3 className="form-section-title">天气</h3>
   <div className="form-grid">
    <label>机场<input value={value.airport??''} onChange={e=>set('airport',e.target.value)} placeholder="ZBAA"/></label>
    <label>气温 °C<input type="number" value={value.temperature??''} onChange={e=>set('temperature',e.target.value,true)} placeholder="31"/></label>
    <label>风向 °<input type="number" min="0" max="360" value={value.windDirection??''} onChange={e=>set('windDirection',e.target.value,true)} placeholder="180"/></label>
    <label>风速 kt<input type="number" min="0" value={value.windSpeed??''} onChange={e=>set('windSpeed',e.target.value,true)} placeholder="12"/></label>
    <label>阵风 kt<input type="number" min="0" value={value.gust??''} onChange={e=>set('gust',e.target.value,true)} placeholder="20"/></label>
-   <label>能见度 m<input type="number" min="0" value={value.visibility??''} onChange={e=>set('visibility',e.target.value,true)} placeholder="5000"/></label>
+   <label>能见度 m<input type="number" min="0" value={value.visibility??''} onChange={e=>set('visibility',e.target.value,true)} placeholder="400"/></label>
+   <label>是否降水<select value={value.precipitation??''} onChange={e=>set('precipitation',e.target.value)}><option value="">未填写</option><option value="yes">有降水</option><option value="no">无降水</option></select></label>
+   <label>需要除/防冰<select value={value.antiIceRequired??''} onChange={e=>set('antiIceRequired',e.target.value)}><option value="">未填写</option><option value="yes">需要</option><option value="no">不需要</option></select></label>
+  </div>
+  <h3 className="form-section-title">跑道</h3>
+  <div className="form-grid">
    <label>跑道<input value={value.runway??''} onChange={e=>set('runway',e.target.value)} placeholder="18L"/></label>
    <label>跑道方向 °<input type="number" min="0" max="360" value={value.runwayHeading??''} onChange={e=>set('runwayHeading',e.target.value,true)} placeholder="180"/></label>
-   <label>跑道状态<select value={value.runwayState??''} onChange={e=>set('runwayState',e.target.value)}><option value="">未填写</option><option value="dry">干</option><option value="wet">湿</option><option value="contaminated">污染</option></select></label>
+   <label>跑道代码<input value={value.runwayCode??''} onChange={e=>set('runwayCode',e.target.value)} placeholder="444"/></label>
    <label>刹车效应<select value={value.brakingAction??''} onChange={e=>set('brakingAction',e.target.value)}><option value="">未填写</option><option value="good">好</option><option value="medium">中</option><option value="poor">差</option></select></label>
   </div>
   {(comp.crosswind!==undefined||comp.headwind!==undefined)&&<div className="component-readout"><span>侧风 <strong>{comp.crosswind} kt</strong></span><span>{(comp.headwind??0)>=0?'顶风':'顺风'} <strong>{Math.abs(comp.headwind??0)} kt</strong></span></div>}
@@ -109,18 +124,21 @@ export default function App(){
  const matched=useMemo(()=>activeRules(rules,session.environment),[rules,session.environment]);
  const activeSubjectRecords=useMemo(()=>subjects.filter(s=>session.activeSubjects.some(a=>a.subjectId===s.id&&a.status==='active')),[subjects,session.activeSubjects]);
  const phase=phases[session.currentPhaseIndex];const items=useMemo(()=>aggregatePhaseItems(phase.id,base,matched,activeSubjectRecords),[phase.id,base,matched,activeSubjectRecords]);
- const incomplete=items.filter(x=>x.kind==='check'&&!session.checked[x.checkKey]);
+ const riskItems=items.filter(x=>x.kind==='risk'),checkItems=items.filter(x=>x.kind==='check');
+ const incomplete=checkItems.filter(x=>!session.checked[x.checkKey]);
+ const operationMode=session.environment.temperature===undefined?'未判定':session.environment.temperature>30?'高温运行':session.environment.temperature<=0?'冬季运行':'常规运行';
+ const renderItem=(item:DisplayItem)=><article className={'flow-item '+item.kind+' '+item.severity+(session.checked[item.checkKey]?' checked':'')} key={item.checkKey} onClick={()=>item.kind==='check'&&saveSession({...session,checked:{...session.checked,[item.checkKey]:!session.checked[item.checkKey]}})}>{item.kind==='check'?<button className="checkbox">{session.checked[item.checkKey]&&<Check/>}</button>:<div className="risk-icon">{item.severity==='critical'?<ShieldAlert/>:<AlertTriangle/>}</div>}<div><div className="item-meta"><span>{item.kind==='check'?'易忘项目':severityLabel[item.severity]+'风险'}</span>{item.sources.map(s=><Pill key={s} tone={s==='正常流程'?'muted':item.severity}>{s}</Pill>)}</div><p>{item.text||'未填写内容'}</p></div></article>;
  const go=(index:number,force=false)=>{if(index>session.currentPhaseIndex&&incomplete.length&&!force){setShowIncomplete(true);return}const completed=new Set(session.completedPhaseIds);if(index>session.currentPhaseIndex)completed.add(phase.id);saveSession({...session,currentPhaseIndex:Math.max(0,Math.min(20,index)),completedPhaseIds:[...completed]})};
  const exportData=async()=>{const data:AppBackup={version:1,exportedAt:now(),session,baseOutputs:base,rules,subjects};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='flight-flow-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url)};
  const importData=async(file:File)=>{try{const data=JSON.parse(await file.text())as AppBackup;if(data.version!==1||!Array.isArray(data.rules)||!Array.isArray(data.subjects))throw new Error();const merge=confirm('按“确定”合并科目和规则；按“取消”将完全覆盖现有数据。');const nextRules=merge?[...new Map([...rules,...data.rules].map(x=>[x.id,x])).values()]:data.rules;const nextSubjects=merge?[...new Map([...subjects,...data.subjects].map(x=>[x.id,x])).values()]:data.subjects;await db.transaction('rw',[db.rules,db.subjects,db.sessions,db.settings],async()=>{await db.rules.clear();await db.rules.bulkPut(nextRules);await db.subjects.clear();await db.subjects.bulkPut(nextSubjects);await db.sessions.put(data.session);await db.settings.put({key:'baseOutputs',value:data.baseOutputs})});setRules(nextRules);setSubjects(nextSubjects);setSession(data.session);setBase(data.baseOutputs);alert('导入完成')}catch{alert('无法导入：文件格式或版本不正确')}};
  if(loading)return <div className="splash"><img src={import.meta.env.BASE_URL+'icon.svg'}/><h1>Flight Flow</h1><span>正在恢复进程…</span></div>;
  return <div className="app-shell">
-  <aside className="rail"><div className="brand"><img src={import.meta.env.BASE_URL+'icon.svg'}/><div><b>FLIGHT FLOW</b><span>A320 · 本机离线</span></div></div><nav>{phases.map((p,i)=><button title={p.name} key={p.id} className={(i===session.currentPhaseIndex?'active ':'')+(session.completedPhaseIds.includes(p.id)?'done':'')} onClick={()=>{go(i);setView('current')}}><span>{session.completedPhaseIds.includes(p.id)?<Check/>:String(i+1).padStart(2,'0')}</span><em>{p.name}</em></button>)}</nav></aside>
-  <main className="workspace"><header className="topbar"><div className="segmented"><button className={view==='current'?'active':''} onClick={()=>setView('current')}><ListChecks/>当前阶段</button><button className={view==='overview'?'active':''} onClick={()=>setView('overview')}><LayoutGrid/>总览</button></div><div className="top-actions"><button onClick={()=>setModal('environment')}><CloudSun/>环境条件{matched.length>0&&<b>{matched.length}</b>}</button><button onClick={()=>setModal('subjects')}><ShieldAlert/>模拟机科目{session.activeSubjects.filter(x=>x.status==='active').length>0&&<b>{session.activeSubjects.filter(x=>x.status==='active').length}</b>}</button><button className="icon-btn" onClick={()=>setModal('settings')}><Settings2/></button></div></header>
+  <aside className="rail"><div className="brand"><img src={import.meta.env.BASE_URL+'icon.svg'}/><div><b>FLIGHT FLOW</b><span>v{APP_VERSION} · {APP_UPDATED_AT}</span></div></div><nav>{phases.map((p,i)=><button title={p.name} key={p.id} className={(i===session.currentPhaseIndex?'active ':'')+(session.completedPhaseIds.includes(p.id)?'done':'')} onClick={()=>{go(i);setView('current')}}><span>{session.completedPhaseIds.includes(p.id)?<Check/>:String(i+1).padStart(2,'0')}</span><em>{p.name}</em></button>)}</nav></aside>
+  <main className="workspace"><header className="topbar"><div className="segmented"><button className={view==='current'?'active':''} onClick={()=>setView('current')}><ListChecks/>当前阶段</button><button className={view==='overview'?'active':''} onClick={()=>setView('overview')}><LayoutGrid/>总览</button></div><div className="top-actions"><button onClick={()=>setModal('environment')}><CloudSun/>环境条件{matched.length>0&&<b>{matched.length}</b>}</button><button onClick={()=>setModal('environment')}><Plane/>飞机信息</button><button onClick={()=>setModal('subjects')}><ShieldAlert/>模拟机科目{session.activeSubjects.filter(x=>x.status==='active').length>0&&<b>{session.activeSubjects.filter(x=>x.status==='active').length}</b>}</button><button className="icon-btn" onClick={()=>setModal('settings')}><Settings2/></button></div></header>
    {view==='overview'?<Overview session={session} base={base} rules={rules} subjects={subjects} onSelect={i=>{go(i);setView('current')}}/>:<div className="current-view">
-    <section className="stage-hero"><div><span className="eyebrow">PHASE {String(session.currentPhaseIndex+1).padStart(2,'0')} / 21 · {phase.group}</span><h1>{phase.name}</h1><div className="status-row"><Pill tone="active">当前阶段</Pill>{matched.map(r=><Pill tone="caution" key={r.id}>{r.name}</Pill>)}{activeSubjectRecords.map(s=><Pill tone="critical" key={s.id}>{s.name}</Pill>)}</div></div><div className="stage-progress"><span>{Math.round((session.currentPhaseIndex+1)/21*100)}%</span><div><i style={{width:(session.currentPhaseIndex+1)/21*100+'%'}}/></div></div></section>
-    <section className="content-panel"><div className="panel-head"><div><h2>本阶段提示</h2><span>{items.filter(x=>x.kind==='check'&&session.checked[x.checkKey]).length} / {items.filter(x=>x.kind==='check').length} 已完成</span></div><button className="small-btn" onClick={()=>setModal('base')}><Edit3/>编辑正常流程</button></div>
-     {!items.length?<div className="empty-state"><div><ListChecks/></div><h3>本阶段还没有提示</h3><p>可编辑正常流程，或通过环境规则和模拟机科目自动加入内容。</p><button className="primary-btn" onClick={()=>setModal('base')}><Plus/>添加第一项</button></div>:<div className="item-list">{items.map(item=><article className={'flow-item '+item.kind+' '+item.severity+(session.checked[item.checkKey]?' checked':'')} key={item.checkKey} onClick={()=>item.kind==='check'&&saveSession({...session,checked:{...session.checked,[item.checkKey]:!session.checked[item.checkKey]}})}>{item.kind==='check'?<button className="checkbox">{session.checked[item.checkKey]&&<Check/>}</button>:<div className="risk-icon">{item.severity==='critical'?<ShieldAlert/>:<AlertTriangle/>}</div>}<div><div className="item-meta"><span>{item.kind==='check'?'易忘项目':severityLabel[item.severity]+'风险'}</span>{item.sources.map(s=><Pill key={s} tone={s==='正常流程'?'muted':item.severity}>{s}</Pill>)}</div><p>{item.text||'未填写内容'}</p></div></article>)}</div>}
+    <section className="stage-hero"><div><span className="eyebrow">PHASE {String(session.currentPhaseIndex+1).padStart(2,'0')} / 21 · {phase.group}</span><h1>{phase.name}</h1><div className="status-row"><Pill tone="active">当前阶段</Pill><Pill tone={operationMode==='常规运行'?'active':'caution'}>{operationMode}</Pill>{matched.map(r=><Pill tone={r.outputs.some(o=>o.items.some(i=>i.severity==='critical'))?'critical':'caution'} key={r.id}>{r.name}</Pill>)}{activeSubjectRecords.map(s=><Pill tone="critical" key={s.id}>{s.name}</Pill>)}</div></div><div className="stage-progress"><span>{Math.round((session.currentPhaseIndex+1)/21*100)}%</span><div><i style={{width:(session.currentPhaseIndex+1)/21*100+'%'}}/></div></div></section>
+    <section className="content-panel"><div className="panel-head"><div><h2>本阶段提示</h2><span>{checkItems.filter(x=>session.checked[x.checkKey]).length} / {checkItems.length} 已完成</span></div><button className="small-btn" onClick={()=>setModal('base')}><Edit3/>编辑正常流程</button></div>
+     {!items.length?<div className="empty-state"><div><ListChecks/></div><h3>本阶段还没有提示</h3><p>可编辑正常流程，或通过环境规则和模拟机科目自动加入内容。</p><button className="primary-btn" onClick={()=>setModal('base')}><Plus/>添加第一项</button></div>:<div className="item-list separated-list">{riskItems.length>0&&<section className="item-section risk-section"><h3><ShieldAlert/>风险提示</h3>{riskItems.map(renderItem)}</section>}{checkItems.length>0&&<section className="item-section check-section"><h3><ListChecks/>易忘提醒</h3>{checkItems.map(renderItem)}</section>}</div>}
     </section>
     <footer className="stage-nav"><button className="ghost-btn" disabled={session.currentPhaseIndex===0} onClick={()=>go(session.currentPhaseIndex-1)}><ArrowLeft/>上一阶段</button><button className="primary-btn next" onClick={()=>session.currentPhaseIndex===20?saveSession({...session,completedPhaseIds:[...new Set([...session.completedPhaseIds,phase.id])] }):go(session.currentPhaseIndex+1)}>{session.currentPhaseIndex===20?'完成全部阶段':'完成并进入下一阶段'}{session.currentPhaseIndex<20&&<ArrowRight/>}</button></footer>
    </div>}
