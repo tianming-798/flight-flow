@@ -1,6 +1,6 @@
 import type{EnvironmentRule,FlightPhase,FlightSession,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.2.0';
-export const APP_UPDATED_AT='2026-06-25 01:10';
+export const APP_VERSION='0.2.1';
+export const APP_UPDATED_AT='2026-06-25 16:25';
 export const phases:FlightPhase[]=[
 ['external-safety','外部安全检查','外部安全','地面准备'],['cockpit-initial','驾驶舱初始准备','初始准备','地面准备'],['walkaround','外部绕机检查','绕机检查','地面准备'],['cockpit-preparation','驾驶舱准备','驾驶舱准备','地面准备'],['before-start','推出或起动前','起动前','地面准备'],['engine-start','发动机起动','发动机起动','地面准备'],['after-start','起动后','起动后','地面准备'],['taxi','滑行','滑行','地面准备'],['before-takeoff','起飞前','起飞前','起飞'],['takeoff','起飞','起飞','起飞'],['after-takeoff','起飞后','起飞后','起飞'],['climb','爬升','爬升','航路'],['cruise','巡航','巡航','航路'],['descent-preparation','下降准备','下降准备','航路'],['descent','下降','下降','航路'],['approach','进近','进近','进近着陆'],['landing','着陆','着陆','进近着陆'],['go-around','复飞','复飞','进近着陆'],['after-landing','着陆后','着陆后','停机'],['parking','停机','停机','停机'],['securing-aircraft','安全离机','安全离机','停机']].map(([id,name,shortName,group])=>({id,name,shortName,group}as FlightPhase));
 export const emptyBaseOutputs:PhaseOutput[]=phases.map(p=>({phaseId:p.id,items:[]}));

@@ -36,17 +36,12 @@ function OutputEditor({outputs,phaseId,onChange}:{outputs:PhaseOutput[];phaseId:
 
 function EnvironmentModal({value,onChange,onClose}:{value:EnvironmentData;onChange:(v:EnvironmentData)=>void;onClose:()=>void}){
  const set=(key:keyof EnvironmentData,raw:string,numeric=false)=>{const next={...value};if(raw==='')delete next[key];else (next as Record<string,unknown>)[key]=numeric?Number(raw):raw;onChange(next)};
+ const clearEnvironment=()=>{const{aircraftType,fuelTons,zeroFuelWeightTons}=value;onChange({aircraftType,fuelTons,zeroFuelWeightTons})};
  const comp=windComponents(value);
  const mode=value.temperature===undefined?'未判定':value.temperature>30?'高温运行':value.temperature<=0?'冬季运行':'常规运行';
  const modeTone=mode==='高温运行'||mode==='冬季运行'?'caution':'active';
- return <Modal title="环境条件与飞机信息" onClose={onClose} wide><p className="hint">所有字段均为选填。系统只根据已经填写的关键数据触发提示；空字段不判断、不报错、不阻止推进。</p>
+ return <Modal title="环境条件" onClose={onClose} wide><p className="hint">这里仅填写天气和跑道。字段均为选填；空字段不判断、不报错、不阻止推进。</p>
   <div className="mode-strip"><span>运行方式</span><Pill tone={modeTone}>{mode}</Pill><small>按气温自动判断：&gt;30℃ 高温；≤0℃ 冬季；其余常规。</small></div>
-  <h3 className="form-section-title">飞机信息</h3>
-  <div className="form-grid">
-   <label>机型<input value={value.aircraftType??''} onChange={e=>set('aircraftType',e.target.value)} placeholder="A320"/></label>
-   <label>油量 吨<input type="number" min="0" step="0.1" value={value.fuelTons??''} onChange={e=>set('fuelTons',e.target.value,true)} placeholder="8.5"/></label>
-   <label>0 燃油重量 吨<input type="number" min="0" step="0.1" value={value.zeroFuelWeightTons??''} onChange={e=>set('zeroFuelWeightTons',e.target.value,true)} placeholder="56.0"/></label>
-  </div>
   <h3 className="form-section-title">天气</h3>
   <div className="form-grid">
    <label>机场<input value={value.airport??''} onChange={e=>set('airport',e.target.value)} placeholder="ZBAA"/></label>
@@ -67,7 +62,23 @@ function EnvironmentModal({value,onChange,onClose}:{value:EnvironmentData;onChan
   </div>
   {(comp.crosswind!==undefined||comp.headwind!==undefined)&&<div className="component-readout"><span>侧风 <strong>{comp.crosswind} kt</strong></span><span>{(comp.headwind??0)>=0?'顶风':'顺风'} <strong>{Math.abs(comp.headwind??0)} kt</strong></span></div>}
   <label className="full-label">备注<textarea value={value.notes??''} onChange={e=>set('notes',e.target.value)} placeholder="自由记录本次运行条件"/></label>
-  <footer className="modal-actions"><button className="ghost-btn" onClick={()=>onChange({})}>清空条件</button><button className="primary-btn" onClick={onClose}>完成</button></footer>
+  <footer className="modal-actions"><button className="ghost-btn" onClick={clearEnvironment}>清空环境</button><button className="primary-btn" onClick={onClose}>完成</button></footer>
+ </Modal>
+}
+
+function AircraftModal({value,onChange,onClose}:{value:EnvironmentData;onChange:(v:EnvironmentData)=>void;onClose:()=>void}){
+ const set=(key:keyof EnvironmentData,raw:string,numeric=false)=>{const next={...value};if(raw==='')delete next[key];else (next as Record<string,unknown>)[key]=numeric?Number(raw):raw;onChange(next)};
+ const clearAircraft=()=>{const next={...value};delete next.aircraftType;delete next.fuelTons;delete next.zeroFuelWeightTons;onChange(next)};
+ const takeoffWeight=value.fuelTons!==undefined&&value.zeroFuelWeightTons!==undefined?Math.round((value.fuelTons+value.zeroFuelWeightTons)*10)/10:undefined;
+ return <Modal title="飞机信息" onClose={onClose}><p className="hint">这里仅填写飞机和重量相关信息。后续大重量起飞、性能确认等风险提示会优先从这里取数据。</p>
+  <div className="aircraft-summary"><Plane/><div><span>当前机型</span><b>{value.aircraftType||'未填写'}</b></div>{takeoffWeight!==undefined&&<Pill tone="info">预计起飞重量 {takeoffWeight} 吨</Pill>}</div>
+  <div className="form-grid aircraft-form">
+   <label>机型<input value={value.aircraftType??''} onChange={e=>set('aircraftType',e.target.value)} placeholder="A320"/></label>
+   <label>油量 吨<input type="number" min="0" step="0.1" value={value.fuelTons??''} onChange={e=>set('fuelTons',e.target.value,true)} placeholder="8.5"/></label>
+   <label>0 燃油重量 吨<input type="number" min="0" step="0.1" value={value.zeroFuelWeightTons??''} onChange={e=>set('zeroFuelWeightTons',e.target.value,true)} placeholder="56.0"/></label>
+  </div>
+  <div className="aircraft-note"><b>预留：</b>后面可以按“油量 + 0燃油重量”自动触发大重量起飞风险提示，阈值等你确定后再加。</div>
+  <footer className="modal-actions"><button className="ghost-btn" onClick={clearAircraft}>清空飞机信息</button><button className="primary-btn" onClick={onClose}>完成</button></footer>
  </Modal>
 }
 
@@ -134,7 +145,7 @@ export default function App(){
  if(loading)return <div className="splash"><img src={import.meta.env.BASE_URL+'icon.svg'}/><h1>Flight Flow</h1><span>正在恢复进程…</span></div>;
  return <div className="app-shell">
   <aside className="rail"><div className="brand"><img src={import.meta.env.BASE_URL+'icon.svg'}/><div><b>FLIGHT FLOW</b><span>v{APP_VERSION} · {APP_UPDATED_AT}</span></div></div><nav>{phases.map((p,i)=><button title={p.name} key={p.id} className={(i===session.currentPhaseIndex?'active ':'')+(session.completedPhaseIds.includes(p.id)?'done':'')} onClick={()=>{go(i);setView('current')}}><span>{session.completedPhaseIds.includes(p.id)?<Check/>:String(i+1).padStart(2,'0')}</span><em>{p.name}</em></button>)}</nav></aside>
-  <main className="workspace"><header className="topbar"><div className="segmented"><button className={view==='current'?'active':''} onClick={()=>setView('current')}><ListChecks/>当前阶段</button><button className={view==='overview'?'active':''} onClick={()=>setView('overview')}><LayoutGrid/>总览</button></div><div className="top-actions"><button onClick={()=>setModal('environment')}><CloudSun/>环境条件{matched.length>0&&<b>{matched.length}</b>}</button><button onClick={()=>setModal('environment')}><Plane/>飞机信息</button><button onClick={()=>setModal('subjects')}><ShieldAlert/>模拟机科目{session.activeSubjects.filter(x=>x.status==='active').length>0&&<b>{session.activeSubjects.filter(x=>x.status==='active').length}</b>}</button><button className="icon-btn" onClick={()=>setModal('settings')}><Settings2/></button></div></header>
+  <main className="workspace"><header className="topbar"><div className="segmented"><button className={view==='current'?'active':''} onClick={()=>setView('current')}><ListChecks/>当前阶段</button><button className={view==='overview'?'active':''} onClick={()=>setView('overview')}><LayoutGrid/>总览</button></div><div className="top-actions"><button onClick={()=>setModal('environment')}><CloudSun/>环境条件{matched.length>0&&<b>{matched.length}</b>}</button><button onClick={()=>setModal('aircraft')}><Plane/>飞机信息</button><button onClick={()=>setModal('subjects')}><ShieldAlert/>模拟机科目{session.activeSubjects.filter(x=>x.status==='active').length>0&&<b>{session.activeSubjects.filter(x=>x.status==='active').length}</b>}</button><button className="icon-btn" onClick={()=>setModal('settings')}><Settings2/></button></div></header>
    {view==='overview'?<Overview session={session} base={base} rules={rules} subjects={subjects} onSelect={i=>{go(i);setView('current')}}/>:<div className="current-view">
     <section className="stage-hero"><div><span className="eyebrow">PHASE {String(session.currentPhaseIndex+1).padStart(2,'0')} / 21 · {phase.group}</span><h1>{phase.name}</h1><div className="status-row"><Pill tone="active">当前阶段</Pill><Pill tone={operationMode==='常规运行'?'active':'caution'}>{operationMode}</Pill>{matched.map(r=><Pill tone={r.outputs.some(o=>o.items.some(i=>i.severity==='critical'))?'critical':'caution'} key={r.id}>{r.name}</Pill>)}{activeSubjectRecords.map(s=><Pill tone="critical" key={s.id}>{s.name}</Pill>)}</div></div><div className="stage-progress"><span>{Math.round((session.currentPhaseIndex+1)/21*100)}%</span><div><i style={{width:(session.currentPhaseIndex+1)/21*100+'%'}}/></div></div></section>
     <section className="content-panel"><div className="panel-head"><div><h2>本阶段提示</h2><span>{checkItems.filter(x=>session.checked[x.checkKey]).length} / {checkItems.length} 已完成</span></div><button className="small-btn" onClick={()=>setModal('base')}><Edit3/>编辑正常流程</button></div>
@@ -144,6 +155,7 @@ export default function App(){
    </div>}
   </main>
   {modal==='environment'&&<EnvironmentModal value={session.environment} onChange={environment=>saveSession({...session,environment})} onClose={()=>setModal(null)}/>}
+  {modal==='aircraft'&&<AircraftModal value={session.environment} onChange={environment=>saveSession({...session,environment})} onClose={()=>setModal(null)}/>}
   {modal==='base'&&<BaseEditor outputs={base} onClose={()=>setModal(null)} onSave={async v=>{setBase(v);await db.settings.put({key:'baseOutputs',value:v});setModal(null)}}/>}
   {modal==='rules'&&<RulesModal rules={rules} onClose={()=>setModal(null)} onSave={async v=>{setRules(v);await db.rules.clear();await db.rules.bulkPut(v);setModal(null)}}/>}
   {modal==='subjects'&&<SubjectsModal subjects={subjects} active={session.activeSubjects} onClose={()=>setModal(null)} onActivate={id=>saveSession({...session,activeSubjects:[...session.activeSubjects,{subjectId:id,status:'active',activatedAt:now()}]})} onResolve={id=>saveSession({...session,activeSubjects:session.activeSubjects.map(a=>a.subjectId===id?{...a,status:'resolved',resolvedAt:now()}:a)})} onSave={async v=>{setSubjects(v);await db.subjects.clear();await db.subjects.bulkPut(v)}}/>}
