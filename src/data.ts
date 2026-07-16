@@ -1,6 +1,6 @@
-import type{EnvironmentRule,FlightPhase,FlightSession,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.2.3';
-export const APP_UPDATED_AT='2026-06-25 17:00';
+import type{EnvironmentRule,FlightPhase,FlightSession,FlowItem,PhaseOutput,TrainingSubject}from'./types';
+export const APP_VERSION='0.3.0';
+export const APP_UPDATED_AT='2026-07-16 20:30';
 export const changelog=[
  {version:'0.2.3',date:'2026-06-25 17:00',items:['新增设置里的版本更新记录，可查看每版改动内容。']},
  {version:'0.2.2',date:'2026-06-25 16:45',items:['修复高温运行标签重复显示。','左侧阶段列表改为仅预览，不再提前标记阶段完成。','新增“回到当前阶段”按钮。']},
@@ -33,6 +33,64 @@ export const defaultRules:EnvironmentRule[]=[
  {id:'rule-low-visibility',name:'低能见度',enabled:true,groups:[{id:'group-low-vis',conditions:[{id:'cond-low-vis',field:'visibility',operator:'lte',value:400}]}],outputs:[{phaseId:'cockpit-preparation',items:[{id:'low-vis-ls-button-on',text:'LS 按钮开',kind:'check',severity:'caution',order:12}]}],updatedAt:now()},
  {id:'rule-low-vis-crosswind-limit',name:'低能见度 + 侧风限制',enabled:true,groups:[{id:'group-low-vis-crosswind',conditions:[{id:'cond-low-vis-crosswind-vis',field:'visibility',operator:'lte',value:400},{id:'cond-low-vis-crosswind',field:'crosswind',operator:'gt',value:15}]}],outputs:[{phaseId:'before-takeoff',items:[{id:'low-vis-crosswind-no-takeoff-before',text:'低能见度且侧风大于 15 kt：不能起飞',kind:'risk',severity:'critical',order:0}]},{phaseId:'takeoff',items:[{id:'low-vis-crosswind-no-takeoff',text:'低能见度且侧风大于 15 kt：不能起飞',kind:'risk',severity:'critical',order:0}]}],updatedAt:now()},
  {id:'rule-anti-ice-required',name:'需要除/防冰',enabled:true,groups:[{id:'group-anti-ice-required',conditions:[{id:'cond-anti-ice-required',field:'antiIceRequired',operator:'eq',value:'yes'}]}],outputs:[{phaseId:'after-start',items:[{id:'anti-ice-delay-flap-until-runway',text:'延迟放襟翼直到进跑道',kind:'check',severity:'caution',order:10}]},{phaseId:'taxi',items:[{id:'anti-ice-shedding-procedure',text:'执行卸冰程序',kind:'check',severity:'caution',order:10}]},{phaseId:'after-landing',items:[{id:'anti-ice-delay-flap-retract-until-stand',text:'延迟收襟翼直到机位上',kind:'check',severity:'caution',order:10}]}],updatedAt:now()}
+];
+
+export const f1GuidePhases:{id:string;name:string;items:FlowItem[]}[]=[
+ {id:'online-prep',name:'网上准备',items:[
+  {id:'online-message',kind:'check',severity:'info',order:1,text:'提前一天发消息，确认任务、时间、集合要求。'},
+  {id:'online-plan-download',kind:'check',severity:'info',order:2,text:'起飞前约 3 小时可下载飞行计划，提前看航路、油量、天气和特殊信息。'},
+  {id:'online-check-in-rule',kind:'check',severity:'caution',order:3,text:'天府早班按要求提前完成签到；双流通常不用提前一天签到，按任务时间到场。'},
+  {id:'online-study',kind:'check',severity:'info',order:4,text:'复习部门手册、理论程序技术知识、舱单、通讯记录本、监控飞机相关知识。'},
+  {id:'online-risk-time',kind:'risk',severity:'caution',order:5,text:'早班、异地、基地公寓和调度签到时间容易混淆，务必按当天任务核对。'}
+ ]},
+ {id:'briefing-room',name:'准备室',items:[
+  {id:'brief-screen',kind:'check',severity:'info',order:1,text:'到准备室看屏幕，确认自己的准备桌，打开对应电脑。'},
+  {id:'brief-login',kind:'check',severity:'info',order:2,text:'在桌面系统登录，完成签到，查看飞行计划、飞行前自查、签派放行/任务书。'},
+  {id:'brief-docs',kind:'check',severity:'info',order:3,text:'下载并检查飞行计划、飞行前自查、签派放行、天气报文、特殊天气和飞机状态/时报报告。'},
+  {id:'brief-fuel',kind:'check',severity:'caution',order:4,text:'核对油量；天气不好或备降风险时，关注是否需要增加油量并与机长确认。'},
+  {id:'brief-paperwork',kind:'check',severity:'info',order:5,text:'按要求打印任务书、油单/签派放行、飞行计划等纸质资料。'},
+  {id:'brief-taskbook',kind:'check',severity:'info',order:6,text:'开车前约 10 分钟去打印/领取任务书，核实航班号和机组姓名。'},
+  {id:'brief-risk-seat',kind:'risk',severity:'caution',order:7,text:'F1 阶段跟随机长/教员安排，座位、任务和观察重点以现场分工为准。'}
+ ]},
+ {id:'crew-bus',name:'机组车去机场',items:[
+  {id:'bus-workbench',kind:'check',severity:'info',order:1,text:'机组车上打开 3.0 工作台，进入审批/协同单等页面，关注机组协同单。'},
+  {id:'bus-captain-first',kind:'check',severity:'caution',order:2,text:'协同单通常等机长先选/划到底后再填写，避免抢填或填错。'},
+  {id:'bus-standby',kind:'check',severity:'info',order:3,text:'驻外或特殊任务按要求准备工作单，必要时在车上完成。'},
+  {id:'bus-brief',kind:'check',severity:'info',order:4,text:'完成机组协同单，航班之家审批中确认第五码，和组员简单沟通任务分工。'}
+ ]},
+ {id:'on-board',name:'上飞机',items:[
+  {id:'board-seat',kind:'check',severity:'info',order:1,text:'完成机组协同单后按安排上机；可坐观察员位/第四座等，以机组安排为准。'},
+  {id:'board-equipment',kind:'check',severity:'caution',order:2,text:'检查起落架销子堵盖、应急设备、排雨剂量、滑油量/剩油、纸质 OEB、48 小时内 DDL。'},
+  {id:'board-recorder',kind:'check',severity:'caution',order:3,text:'插录音笔，耳机线两个插头都要插，笛令前可先开录音。'},
+  {id:'board-walkaround',kind:'check',severity:'info',order:4,text:'跟随机组做绕机检查，拿油单，核实飞机注册号和航班号。'},
+  {id:'board-paper',kind:'check',severity:'info',order:5,text:'填写通讯记录本、监控飞机/观察记录相关内容，按需上传电子油单和签过字的舱单。'},
+  {id:'board-loadsheet',kind:'check',severity:'caution',order:6,text:'飞行中照舱单把人数、商载、起飞重量等填好；落地看时间单，记录剩油。'},
+  {id:'board-flb-tlb',kind:'check',severity:'caution',order:7,text:'先完成任务书，再填写 FLB；TLB 通常填 NIL。任务书填错可回来重新打印。'},
+  {id:'board-mcdu',kind:'check',severity:'info',order:8,text:'观察 MCDU 输入顺序：INIT、F-PLN、RAD NAV、性能等；记录 ABCD/E 插入点逻辑。'},
+  {id:'board-risk-paper',kind:'risk',severity:'caution',order:9,text:'纸质资料、油单、任务书、FLB/TLB、通讯记录本容易漏填或填错，建议按固定顺序检查。'}
+ ]},
+ {id:'in-flight',name:'飞行中',items:[
+  {id:'flight-observe',kind:'check',severity:'info',order:1,text:'观察标准喊话、频率转换、滑行路线、跑道进离场路线、MCDU/FCU/监控分工。'},
+  {id:'flight-route',kind:'check',severity:'info',order:2,text:'起飞后听指令熟悉航路走向和指挥习惯，进入巡航后看具体情况学习。'},
+  {id:'flight-record',kind:'check',severity:'caution',order:3,text:'写通讯记录本、监控飞机；巡航不颠簸时根据油单/舱单填写飞行时间本。'},
+  {id:'flight-qnh',kind:'check',severity:'caution',order:4,text:'下降 10000 ft 以下且调 QNH 后，记得做进近检查单。'},
+  {id:'flight-approach',kind:'check',severity:'info',order:5,text:'观察进近图、进场路线选择、跑道选择，提前预估滑行路线。'},
+  {id:'flight-risk-overload',kind:'risk',severity:'caution',order:6,text:'F1 阶段信息量大，不要追求一次全记住；优先记录流程、口令、频率、时间和容易漏的纸面工作。'}
+ ]},
+ {id:'after-landing-f1',name:'下飞机',items:[
+  {id:'after-monitor',kind:'check',severity:'caution',order:1,text:'监控好下机数据、落地时间、剩油等，按需完成记录。'},
+  {id:'after-paper',kind:'check',severity:'info',order:2,text:'落地后完成飞行路线/飞行图上检查，监控大哥二哥滑行路线。'},
+  {id:'after-oil',kind:'check',severity:'caution',order:3,text:'根据 iPad 油量判断是否下去拿油单；若不需要，继续完成记录本和电子任务书。'},
+  {id:'after-recorder',kind:'check',severity:'caution',order:4,text:'过站落地后保存录音笔；下机前确认录音笔已拔、资料已带走。'},
+  {id:'after-upload',kind:'check',severity:'info',order:5,text:'上传电子油单、签过字的舱单，按需拍照留存。'},
+  {id:'after-risk-forget',kind:'risk',severity:'caution',order:6,text:'下机阶段最容易漏录音笔、纸质资料、油单/舱单照片和电子上传。'}
+ ]},
+ {id:'debrief',name:'航后讲评',items:[
+  {id:'debrief-route',kind:'check',severity:'info',order:1,text:'复盘航路、滑行路线、频率、标准喊话和当天观察到的程序差异。'},
+  {id:'debrief-question',kind:'check',severity:'info',order:2,text:'把不懂的缩写、纸面流程、MCDU 输入、监控口令整理成问题，找机会问教员/机长。'},
+  {id:'debrief-archive',kind:'check',severity:'caution',order:3,text:'整理录音、照片、通讯记录本、时间单和个人笔记，形成下次跟班前可复习的材料。'},
+  {id:'debrief-next',kind:'check',severity:'info',order:4,text:'根据本次遗漏更新自己的 F1 跟班流程清单。'}
+ ]}
 ];
 export const defaultSubjects:TrainingSubject[]=[{id:'subject-dual-fmgc',name:'双 FMGC 失效',aliases:['双飞管失效'],keywords:['FMGC','飞行管理'],description:'',outputs:[],createdAt:now(),updatedAt:now()},{id:'subject-lgciu1-ground',name:'地面 LGCIU 1 失效',aliases:['LGCIU1'],keywords:['起落架控制接口组件','地面'],description:'',outputs:[],createdAt:now(),updatedAt:now()}];
 export const fieldLabels:Record<string,string>={airport:'机场',aircraftType:'机型',fuelTons:'油量（吨）',zeroFuelWeightTons:'0燃油重量（吨）',temperature:'气温',windDirection:'风向',windSpeed:'风速',gust:'阵风',visibility:'能见度',precipitation:'是否降水',antiIceRequired:'需要除/防冰',runway:'跑道',runwayHeading:'跑道方向',runwayCode:'跑道代码',runwayState:'跑道状态',brakingAction:'刹车效应',notes:'备注',crosswind:'侧风分量',headwind:'顶风分量'};
