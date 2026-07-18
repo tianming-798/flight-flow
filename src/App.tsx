@@ -37,13 +37,18 @@ function OutputEditor({outputs,phaseId,onChange}:{outputs:PhaseOutput[];phaseId:
 
 function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange:(next:FlightSession)=>void;onClose:()=>void}){
  const checked=session.checked,info:F1FlightInfo={routeType:'domestic',...(session.f1FlightInfo??{})};
- const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id);
- const departure=info.departureTime?new Date(info.departureTime):null;
+ const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id),[durationA,setDurationA]=useState('1小时20分钟'),[durationB,setDurationB]=useState('1小时54分钟');
+ const legacyDeparture=info.departureTime&&info.departureTime.includes('T')?info.departureTime.split('T'):null;
+ const departureDate=info.departureDate??legacyDeparture?.[0]??'',departureClock=info.departureClock??legacyDeparture?.[1]?.slice(0,5)??'';
+ const departure=departureClock?new Date(`${departureDate||new Date().toISOString().slice(0,10)}T${departureClock}`):null;
  const airportName=info.departureAirport==='TFU'?'天府':info.departureAirport==='CTU'?'双流':'未选择';
  const prepMinutes=info.departureAirport==='TFU'?(info.routeType==='international'?130:110):info.departureAirport==='CTU'?100:undefined;
  const prepTime=departure&&prepMinutes!==undefined?new Date(departure.getTime()-prepMinutes*60000):null;
  const isTfuEarly=info.departureAirport==='TFU'&&departure!==null&&departure.getHours()<12;
- const formatTime=(d:Date|null)=>d?d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(/\//g,'-'):'未填写';
+ const formatTime=(d:Date|null)=>d?(departureDate?d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(/\//g,'-'):d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})):'未填写';
+ const parseDuration=(text:string)=>{const s=text.trim();if(!s)return 0;const colon=s.match(/^(\d+)\s*[:：]\s*(\d+)$/);if(colon)return Number(colon[1])*60+Number(colon[2]);const hour=Number(s.match(/(\d+(?:\.\d+)?)\s*(?:小时|时|h|H)/)?.[1]??0),minute=Number(s.match(/(\d+)\s*(?:分钟|分|m|M)/)?.[1]??0);if(hour||minute)return Math.round(hour*60+minute);return Number(s)||0};
+ const durationTotal=parseDuration(durationA)+parseDuration(durationB);
+ const formatDuration=(mins:number)=>`${Math.floor(mins/60)}小时${mins%60}分钟`;
  const copy=(text:string)=>navigator.clipboard?.writeText(text);
  const patchInfo=(patch:Partial<F1FlightInfo>)=>onChange({...session,f1FlightInfo:{...info,...patch}});
  const dynamicItems:FlowItem[]=isTfuEarly?[{id:'tfu-before-noon-checkin',kind:'check',severity:'caution',order:0,text:'天府所执行航班起飞时间在 12:00 以前，需在前一天 21:00 前完成签到。'}]:[];
@@ -56,10 +61,11 @@ function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange
   <section className="f1-flight-card"><div className="form-grid">
    <label>起飞机场<select value={info.departureAirport??''} onChange={e=>patchInfo({departureAirport:(e.target.value as F1FlightInfo['departureAirport'])||undefined})}><option value="">未选择</option><option value="TFU">天府</option><option value="CTU">双流</option></select></label>
    <label>航线类型<select value={info.routeType??'domestic'} onChange={e=>patchInfo({routeType:e.target.value as F1FlightInfo['routeType']})}><option value="domestic">国内</option><option value="international">国际</option></select></label>
-   <label>起飞时间<input type="datetime-local" value={info.departureTime??''} onChange={e=>patchInfo({departureTime:e.target.value||undefined})}/></label>
-   <div className="copy-times"><div><span>起飞时间</span><b>{formatTime(departure)}</b><button className="small-btn" onClick={()=>copy(formatTime(departure))}>复制</button></div><div><span>准备时间</span><b>{formatTime(prepTime)}</b><button className="small-btn" onClick={()=>copy(formatTime(prepTime))}>复制</button></div></div>
+   <label>日期（可不填）<input type="date" value={departureDate} onChange={e=>patchInfo({departureDate:e.target.value||undefined,departureTime:undefined})}/></label>
+   <label>起飞时刻<input type="time" value={departureClock} onChange={e=>patchInfo({departureClock:e.target.value||undefined,departureTime:undefined})}/></label>
   </div><div className="copy-message"><textarea readOnly value={message}/><button className="primary-btn" onClick={()=>copy(message)}>复制给机长的时间信息</button></div>
   {isTfuEarly&&<div className="warning-callout"><AlertTriangle/><p>天府 12:00 以前起飞：前一天 21:00 前完成签到。这个提醒也会出现在「网上准备」里。</p></div>}</section>
+  <section className="f1-calculator"><h3>时间计算器</h3><p>可以输入“1小时20分钟”“1:20”“80”等格式。</p><div><input value={durationA} onChange={e=>setDurationA(e.target.value)} placeholder="1小时20分钟"/><span>+</span><input value={durationB} onChange={e=>setDurationB(e.target.value)} placeholder="1小时54分钟"/><strong>= {formatDuration(durationTotal)}</strong></div></section>
   <div className="f1-summary"><div><span>总进度</span><b>{allDone}<small>/{total}</small></b></div><div><span>当前小阶段</span><b>{phase.name}</b><small>{done}/{checks.length} 项</small></div></div><div className="split-editor f1-guide"><nav>{enrichedPhases.map((p,i)=>{const pc=p.items.filter(x=>x.kind==='check'),pd=pc.filter(x=>checked['f1:'+p.id+':'+x.id]).length;return <button className={phase.id===p.id?'active':''} onClick={()=>setPhaseId(p.id)} key={p.id}><span>{String(i+1).padStart(2,'0')}</span>{p.name}<em>{pd}/{pc.length}</em></button>})}</nav><main><h3>{phase.name}</h3><div className="item-list separated-list">{risks.length>0&&<section className="item-section risk-section"><h3><ShieldAlert/>风险提示</h3>{risks.map(renderGuideItem)}</section>}{checks.length>0&&<section className="item-section check-section"><h3><ListChecks/>易忘提醒</h3>{checks.map(renderGuideItem)}</section>}</div></main></div></Modal>
 }
 
