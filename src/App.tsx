@@ -37,7 +37,7 @@ function OutputEditor({outputs,phaseId,onChange}:{outputs:PhaseOutput[];phaseId:
 
 function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange:(next:FlightSession)=>void;onClose:()=>void}){
  const checked=session.checked,info:F1FlightInfo={routeType:'domestic',...(session.f1FlightInfo??{})};
- const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id),[durationA,setDurationA]=useState('1小时20分钟'),[durationB,setDurationB]=useState('1小时54分钟');
+ const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id),[durationA,setDurationA]=useState(''),[durationB,setDurationB]=useState('');
  const legacyDeparture=info.departureTime&&info.departureTime.includes('T')?info.departureTime.split('T'):null;
  const departureDate=info.departureDate??legacyDeparture?.[0]??'',departureClock=info.departureClock??legacyDeparture?.[1]?.slice(0,5)??'';
  const departure=departureClock?new Date(`${departureDate||new Date().toISOString().slice(0,10)}T${departureClock}`):null;
@@ -46,7 +46,8 @@ function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange
  const prepTime=departure&&prepMinutes!==undefined?new Date(departure.getTime()-prepMinutes*60000):null;
  const isTfuEarly=info.departureAirport==='TFU'&&departure!==null&&departure.getHours()<12;
  const formatTime=(d:Date|null)=>d?(departureDate?d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(/\//g,'-'):d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})):'未填写';
- const parseDuration=(text:string)=>{const s=text.trim();if(!s)return 0;const colon=s.match(/^(\d+)\s*[:：]\s*(\d+)$/);if(colon)return Number(colon[1])*60+Number(colon[2]);const hour=Number(s.match(/(\d+(?:\.\d+)?)\s*(?:小时|时|h|H)/)?.[1]??0),minute=Number(s.match(/(\d+)\s*(?:分钟|分|m|M)/)?.[1]??0);if(hour||minute)return Math.round(hour*60+minute);return Number(s)||0};
+ const formatRelativeTime=(d:Date|null)=>{if(!d)return'未填写';const today=new Date(),tomorrow=new Date();tomorrow.setDate(today.getDate()+1);const sameDay=(a:Date,b:Date)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();const day=sameDay(d,today)?'今天':sameDay(d,tomorrow)?'明天':d.toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}).replace(/\//g,'-');return `${day} ${d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})}`};
+ const parseDuration=(text:string)=>{const s=text.trim();if(!s)return 0;const dot=s.match(/^(\d+)\s*[.．]\s*(\d{1,2})$/);if(dot)return Number(dot[1])*60+Number(dot[2]);const colon=s.match(/^(\d+)\s*[:：]\s*(\d+)$/);if(colon)return Number(colon[1])*60+Number(colon[2]);const hour=Number(s.match(/(\d+(?:\.\d+)?)\s*(?:小时|时|h|H)/)?.[1]??0),minute=Number(s.match(/(\d+)\s*(?:分钟|分|m|M)/)?.[1]??0);if(hour||minute)return Math.round(hour*60+minute);return Number(s)||0};
  const durationTotal=parseDuration(durationA)+parseDuration(durationB);
  const formatDuration=(mins:number)=>`${Math.floor(mins/60)}小时${mins%60}分钟`;
  const copy=(text:string)=>navigator.clipboard?.writeText(text);
@@ -55,7 +56,7 @@ function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange
  const enrichedPhases=f1GuidePhases.map(p=>p.id==='online-prep'?{...p,items:[...dynamicItems,...p.items]}:p);
  const phase=enrichedPhases.find(p=>p.id===phaseId)??enrichedPhases[0],risks=phase.items.filter(i=>i.kind==='risk'),checks=phase.items.filter(i=>i.kind==='check');
  const done=checks.filter(i=>checked['f1:'+phase.id+':'+i.id]).length,total=enrichedPhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check').length,0),allDone=enrichedPhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check'&&checked['f1:'+p.id+':'+i.id]).length,0);
- const message=`起飞机场：${airportName}\n起飞时间：${formatTime(departure)}\n准备时间：${formatTime(prepTime)}`;
+ const message=`起飞时间：${formatRelativeTime(departure)}\n准备时间：${formatRelativeTime(prepTime)}`;
  const renderGuideItem=(item:FlowItem)=><article className={'flow-item '+item.kind+' '+item.severity+(checked['f1:'+phase.id+':'+item.id]?' checked':'')} key={item.id} onClick={()=>item.kind==='check'&&onChange({...session,checked:{...checked,['f1:'+phase.id+':'+item.id]:!checked['f1:'+phase.id+':'+item.id]}})}>{item.kind==='check'?<button className="checkbox">{checked['f1:'+phase.id+':'+item.id]&&<Check/>}</button>:<div className="risk-icon">{item.severity==='critical'?<ShieldAlert/>:<AlertTriangle/>}</div>}<div><div className="item-meta"><span>{item.kind==='check'?'易忘项目':severityLabel[item.severity]+'风险'}</span><Pill tone={item.kind==='risk'?item.severity:'info'}>{item.id.startsWith('tfu-')?'航班信息':phase.name}</Pill></div><p>{item.text}</p></div></article>;
  return <Modal title="F1 跟班流程" onClose={onClose} wide><p className="hint">先填起飞机场和起飞时间，系统会自动算准备时间；F1 流程独立于21个运行阶段。</p>
   <section className="f1-flight-card"><div className="form-grid">
@@ -65,7 +66,7 @@ function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange
    <label>起飞时刻<input type="time" value={departureClock} onChange={e=>patchInfo({departureClock:e.target.value||undefined,departureTime:undefined})}/></label>
   </div><div className="copy-message"><textarea readOnly value={message}/><button className="primary-btn" onClick={()=>copy(message)}>复制给机长的时间信息</button></div>
   {isTfuEarly&&<div className="warning-callout"><AlertTriangle/><p>天府 12:00 以前起飞：前一天 21:00 前完成签到。这个提醒也会出现在「网上准备」里。</p></div>}</section>
-  <section className="f1-calculator"><h3>时间计算器</h3><p>可以输入“1小时20分钟”“1:20”“80”等格式。</p><div><input value={durationA} onChange={e=>setDurationA(e.target.value)} placeholder="1小时20分钟"/><span>+</span><input value={durationB} onChange={e=>setDurationB(e.target.value)} placeholder="1小时54分钟"/><strong>= {formatDuration(durationTotal)}</strong></div></section>
+  <section className="f1-calculator"><h3>时间计算器</h3><p>可以输入“1小时20分钟”“1:20”“1.20”“80”等格式，其中 1.20 表示 1小时20分钟。</p><div><input value={durationA} onChange={e=>setDurationA(e.target.value)} placeholder="例如 1.20"/><span>+</span><input value={durationB} onChange={e=>setDurationB(e.target.value)} placeholder="例如 1:54"/><strong>= {formatDuration(durationTotal)}</strong></div></section>
   <div className="f1-summary"><div><span>总进度</span><b>{allDone}<small>/{total}</small></b></div><div><span>当前小阶段</span><b>{phase.name}</b><small>{done}/{checks.length} 项</small></div></div><div className="split-editor f1-guide"><nav>{enrichedPhases.map((p,i)=>{const pc=p.items.filter(x=>x.kind==='check'),pd=pc.filter(x=>checked['f1:'+p.id+':'+x.id]).length;return <button className={phase.id===p.id?'active':''} onClick={()=>setPhaseId(p.id)} key={p.id}><span>{String(i+1).padStart(2,'0')}</span>{p.name}<em>{pd}/{pc.length}</em></button>})}</nav><main><h3>{phase.name}</h3><div className="item-list separated-list">{risks.length>0&&<section className="item-section risk-section"><h3><ShieldAlert/>风险提示</h3>{risks.map(renderGuideItem)}</section>}{checks.length>0&&<section className="item-section check-section"><h3><ListChecks/>易忘提醒</h3>{checks.map(renderGuideItem)}</section>}</div></main></div></Modal>
 }
 

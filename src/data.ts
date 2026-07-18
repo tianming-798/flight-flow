@@ -1,7 +1,8 @@
 import type{EnvironmentRule,FlightPhase,FlightSession,FlowItem,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.3.2';
-export const APP_UPDATED_AT='2026-07-18 21:05';
+export const APP_VERSION='0.3.3';
+export const APP_UPDATED_AT='2026-07-18 21:20';
 export const changelog=[
+ {version:'0.3.3',date:'2026-07-18 21:20',items:['F1 复制给机长的信息删除起飞机场。','起飞时间和准备时间改为“今天/明天 HH:mm”格式，更适合直接发消息。']},
  {version:'0.3.2',date:'2026-07-18 21:05',items:['F1 航班信息起飞时间改为 iPad 更容易输入的日期可选 + 起飞时刻格式。','删除单独复制起飞时间/准备时间按钮，仅保留复制给机长的汇总消息。','F1 跟班新增时间计算器，可计算两个时长相加结果。']},
  {version:'0.3.1',date:'2026-07-18 20:40',items:['F1 跟班新增航班信息输入，可按天府/双流、起飞时间和航线类型自动计算准备时间。','天府 12:00 以前起飞自动提示前一天 21:00 前签到，并提供可复制的起飞/准备时间消息。','按最新口径清理 F1 跟班各阶段固定项目。']},
  {version:'0.2.3',date:'2026-06-25 17:00',items:['新增设置里的版本更新记录，可查看每版改动内容。']},
