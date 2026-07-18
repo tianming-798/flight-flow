@@ -4,7 +4,7 @@ import{pinyin}from'pinyin-pro';
 import{bootstrapData,db}from'./db';
 import{APP_UPDATED_AT,APP_VERSION,changelog,emptyBaseOutputs,f1GuidePhases,fieldLabels,newSession,operatorLabels,phases}from'./data';
 import{activeRules,aggregatePhaseItems,windComponents}from'./rules';
-import type{AppBackup,ConditionGroup,DisplayItem,EnvironmentData,EnvironmentField,EnvironmentRule,FlightSession,FlowItem,PhaseOutput,Severity,TrainingSubject}from'./types';
+import type{AppBackup,ConditionGroup,DisplayItem,EnvironmentData,EnvironmentField,EnvironmentRule,F1FlightInfo,FlightSession,FlowItem,PhaseOutput,Severity,TrainingSubject}from'./types';
 
 const uid=(prefix='id')=>prefix+'-'+crypto.randomUUID();
 const now=()=>new Date().toISOString();
@@ -35,10 +35,32 @@ function OutputEditor({outputs,phaseId,onChange}:{outputs:PhaseOutput[];phaseId:
 }
 
 
-function F1GuideModal({checked,onToggle,onClose}:{checked:Record<string,boolean>;onToggle:(key:string)=>void;onClose:()=>void}){
- const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id);const phase=f1GuidePhases.find(p=>p.id===phaseId)??f1GuidePhases[0];const risks=phase.items.filter(i=>i.kind==='risk'),checks=phase.items.filter(i=>i.kind==='check');const done=checks.filter(i=>checked['f1:'+phase.id+':'+i.id]).length,total=f1GuidePhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check').length,0),allDone=f1GuidePhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check'&&checked['f1:'+p.id+':'+i.id]).length,0);
- const renderGuideItem=(item:FlowItem)=><article className={'flow-item '+item.kind+' '+item.severity+(checked['f1:'+phase.id+':'+item.id]?' checked':'')} key={item.id} onClick={()=>item.kind==='check'&&onToggle('f1:'+phase.id+':'+item.id)}>{item.kind==='check'?<button className="checkbox">{checked['f1:'+phase.id+':'+item.id]&&<Check/>}</button>:<div className="risk-icon">{item.severity==='critical'?<ShieldAlert/>:<AlertTriangle/>}</div>}<div><div className="item-meta"><span>{item.kind==='check'?'易忘项目':severityLabel[item.severity]+'风险'}</span><Pill tone={item.kind==='risk'?item.severity:'info'}>{phase.name}</Pill></div><p>{item.text}</p></div></article>;
- return <Modal title="F1 跟班流程" onClose={onClose} wide><p className="hint">根据你发来的攻略先整理成固定流程。它独立于21个运行阶段，适合网上准备到航后讲评一路跟着用。</p><div className="f1-summary"><div><span>总进度</span><b>{allDone}<small>/{total}</small></b></div><div><span>当前小阶段</span><b>{phase.name}</b><small>{done}/{checks.length} 项</small></div></div><div className="split-editor f1-guide"><nav>{f1GuidePhases.map((p,i)=>{const pc=p.items.filter(x=>x.kind==='check'),pd=pc.filter(x=>checked['f1:'+p.id+':'+x.id]).length;return <button className={phase.id===p.id?'active':''} onClick={()=>setPhaseId(p.id)} key={p.id}><span>{String(i+1).padStart(2,'0')}</span>{p.name}<em>{pd}/{pc.length}</em></button>})}</nav><main><h3>{phase.name}</h3><div className="item-list separated-list">{risks.length>0&&<section className="item-section risk-section"><h3><ShieldAlert/>风险提示</h3>{risks.map(renderGuideItem)}</section>}{checks.length>0&&<section className="item-section check-section"><h3><ListChecks/>易忘提醒</h3>{checks.map(renderGuideItem)}</section>}</div></main></div></Modal>
+function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange:(next:FlightSession)=>void;onClose:()=>void}){
+ const checked=session.checked,info:F1FlightInfo={routeType:'domestic',...(session.f1FlightInfo??{})};
+ const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id);
+ const departure=info.departureTime?new Date(info.departureTime):null;
+ const airportName=info.departureAirport==='TFU'?'天府':info.departureAirport==='CTU'?'双流':'未选择';
+ const prepMinutes=info.departureAirport==='TFU'?(info.routeType==='international'?130:110):info.departureAirport==='CTU'?100:undefined;
+ const prepTime=departure&&prepMinutes!==undefined?new Date(departure.getTime()-prepMinutes*60000):null;
+ const isTfuEarly=info.departureAirport==='TFU'&&departure!==null&&departure.getHours()<12;
+ const formatTime=(d:Date|null)=>d?d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(/\//g,'-'):'未填写';
+ const copy=(text:string)=>navigator.clipboard?.writeText(text);
+ const patchInfo=(patch:Partial<F1FlightInfo>)=>onChange({...session,f1FlightInfo:{...info,...patch}});
+ const dynamicItems:FlowItem[]=isTfuEarly?[{id:'tfu-before-noon-checkin',kind:'check',severity:'caution',order:0,text:'天府所执行航班起飞时间在 12:00 以前，需在前一天 21:00 前完成签到。'}]:[];
+ const enrichedPhases=f1GuidePhases.map(p=>p.id==='online-prep'?{...p,items:[...dynamicItems,...p.items]}:p);
+ const phase=enrichedPhases.find(p=>p.id===phaseId)??enrichedPhases[0],risks=phase.items.filter(i=>i.kind==='risk'),checks=phase.items.filter(i=>i.kind==='check');
+ const done=checks.filter(i=>checked['f1:'+phase.id+':'+i.id]).length,total=enrichedPhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check').length,0),allDone=enrichedPhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check'&&checked['f1:'+p.id+':'+i.id]).length,0);
+ const message=`起飞机场：${airportName}\n起飞时间：${formatTime(departure)}\n准备时间：${formatTime(prepTime)}`;
+ const renderGuideItem=(item:FlowItem)=><article className={'flow-item '+item.kind+' '+item.severity+(checked['f1:'+phase.id+':'+item.id]?' checked':'')} key={item.id} onClick={()=>item.kind==='check'&&onChange({...session,checked:{...checked,['f1:'+phase.id+':'+item.id]:!checked['f1:'+phase.id+':'+item.id]}})}>{item.kind==='check'?<button className="checkbox">{checked['f1:'+phase.id+':'+item.id]&&<Check/>}</button>:<div className="risk-icon">{item.severity==='critical'?<ShieldAlert/>:<AlertTriangle/>}</div>}<div><div className="item-meta"><span>{item.kind==='check'?'易忘项目':severityLabel[item.severity]+'风险'}</span><Pill tone={item.kind==='risk'?item.severity:'info'}>{item.id.startsWith('tfu-')?'航班信息':phase.name}</Pill></div><p>{item.text}</p></div></article>;
+ return <Modal title="F1 跟班流程" onClose={onClose} wide><p className="hint">先填起飞机场和起飞时间，系统会自动算准备时间；F1 流程独立于21个运行阶段。</p>
+  <section className="f1-flight-card"><div className="form-grid">
+   <label>起飞机场<select value={info.departureAirport??''} onChange={e=>patchInfo({departureAirport:(e.target.value as F1FlightInfo['departureAirport'])||undefined})}><option value="">未选择</option><option value="TFU">天府</option><option value="CTU">双流</option></select></label>
+   <label>航线类型<select value={info.routeType??'domestic'} onChange={e=>patchInfo({routeType:e.target.value as F1FlightInfo['routeType']})}><option value="domestic">国内</option><option value="international">国际</option></select></label>
+   <label>起飞时间<input type="datetime-local" value={info.departureTime??''} onChange={e=>patchInfo({departureTime:e.target.value||undefined})}/></label>
+   <div className="copy-times"><div><span>起飞时间</span><b>{formatTime(departure)}</b><button className="small-btn" onClick={()=>copy(formatTime(departure))}>复制</button></div><div><span>准备时间</span><b>{formatTime(prepTime)}</b><button className="small-btn" onClick={()=>copy(formatTime(prepTime))}>复制</button></div></div>
+  </div><div className="copy-message"><textarea readOnly value={message}/><button className="primary-btn" onClick={()=>copy(message)}>复制给机长的时间信息</button></div>
+  {isTfuEarly&&<div className="warning-callout"><AlertTriangle/><p>天府 12:00 以前起飞：前一天 21:00 前完成签到。这个提醒也会出现在「网上准备」里。</p></div>}</section>
+  <div className="f1-summary"><div><span>总进度</span><b>{allDone}<small>/{total}</small></b></div><div><span>当前小阶段</span><b>{phase.name}</b><small>{done}/{checks.length} 项</small></div></div><div className="split-editor f1-guide"><nav>{enrichedPhases.map((p,i)=>{const pc=p.items.filter(x=>x.kind==='check'),pd=pc.filter(x=>checked['f1:'+p.id+':'+x.id]).length;return <button className={phase.id===p.id?'active':''} onClick={()=>setPhaseId(p.id)} key={p.id}><span>{String(i+1).padStart(2,'0')}</span>{p.name}<em>{pd}/{pc.length}</em></button>})}</nav><main><h3>{phase.name}</h3><div className="item-list separated-list">{risks.length>0&&<section className="item-section risk-section"><h3><ShieldAlert/>风险提示</h3>{risks.map(renderGuideItem)}</section>}{checks.length>0&&<section className="item-section check-section"><h3><ListChecks/>易忘提醒</h3>{checks.map(renderGuideItem)}</section>}</div></main></div></Modal>
 }
 
 function EnvironmentModal({value,onChange,onClose}:{value:EnvironmentData;onChange:(v:EnvironmentData)=>void;onClose:()=>void}){
@@ -170,7 +192,7 @@ export default function App(){
     <footer className="stage-nav">{viewingCurrent?<button className="ghost-btn" disabled={session.currentPhaseIndex===0} onClick={()=>go(session.currentPhaseIndex-1)}><ArrowLeft/>上一阶段</button>:<button className="ghost-btn" onClick={returnToCurrent}>回到当前阶段</button>}{viewingCurrent?<button className="primary-btn next" onClick={()=>session.currentPhaseIndex===20?saveSession({...session,completedPhaseIds:[...new Set([...session.completedPhaseIds,currentPhase.id])] }):go(session.currentPhaseIndex+1)}>{session.currentPhaseIndex===20?'完成全部阶段':'完成并进入下一阶段'}{session.currentPhaseIndex<20&&<ArrowRight/>}</button>:<span className="preview-note">正在查看其它阶段，不会改变完成进度</span>}</footer>
    </div>}
   </main>
-  {modal==='f1guide'&&<F1GuideModal checked={session.checked} onToggle={key=>saveSession({...session,checked:{...session.checked,[key]:!session.checked[key]}})} onClose={()=>setModal(null)}/>}
+  {modal==='f1guide'&&<F1GuideModal session={session} onChange={saveSession} onClose={()=>setModal(null)}/>}
   {modal==='environment'&&<EnvironmentModal value={session.environment} onChange={environment=>saveSession({...session,environment})} onClose={()=>setModal(null)}/>}
   {modal==='aircraft'&&<AircraftModal value={session.environment} onChange={environment=>saveSession({...session,environment})} onClose={()=>setModal(null)}/>}
   {modal==='base'&&<BaseEditor outputs={base} onClose={()=>setModal(null)} onSave={async v=>{setBase(v);await db.settings.put({key:'baseOutputs',value:v});setModal(null)}}/>}

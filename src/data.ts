@@ -1,7 +1,8 @@
 import type{EnvironmentRule,FlightPhase,FlightSession,FlowItem,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.3.0';
-export const APP_UPDATED_AT='2026-07-16 20:30';
+export const APP_VERSION='0.3.1';
+export const APP_UPDATED_AT='2026-07-18 20:40';
 export const changelog=[
+ {version:'0.3.1',date:'2026-07-18 20:40',items:['F1 跟班新增航班信息输入，可按天府/双流、起飞时间和航线类型自动计算准备时间。','天府 12:00 以前起飞自动提示前一天 21:00 前签到，并提供可复制的起飞/准备时间消息。','按最新口径清理 F1 跟班各阶段固定项目。']},
  {version:'0.2.3',date:'2026-06-25 17:00',items:['新增设置里的版本更新记录，可查看每版改动内容。']},
  {version:'0.2.2',date:'2026-06-25 16:45',items:['修复高温运行标签重复显示。','左侧阶段列表改为仅预览，不再提前标记阶段完成。','新增“回到当前阶段”按钮。']},
  {version:'0.2.1',date:'2026-06-25 16:25',items:['环境条件和飞机信息拆成两个独立页面。','飞机信息页新增预计起飞重量预览。']},
@@ -12,7 +13,7 @@ export const phases:FlightPhase[]=[
 ['external-safety','外部安全检查','外部安全','地面准备'],['cockpit-initial','驾驶舱初始准备','初始准备','地面准备'],['walkaround','外部绕机检查','绕机检查','地面准备'],['cockpit-preparation','驾驶舱准备','驾驶舱准备','地面准备'],['before-start','推出或起动前','起动前','地面准备'],['engine-start','发动机起动','发动机起动','地面准备'],['after-start','起动后','起动后','地面准备'],['taxi','滑行','滑行','地面准备'],['before-takeoff','起飞前','起飞前','起飞'],['takeoff','起飞','起飞','起飞'],['after-takeoff','起飞后','起飞后','起飞'],['climb','爬升','爬升','航路'],['cruise','巡航','巡航','航路'],['descent-preparation','下降准备','下降准备','航路'],['descent','下降','下降','航路'],['approach','进近','进近','进近着陆'],['landing','着陆','着陆','进近着陆'],['go-around','复飞','复飞','进近着陆'],['after-landing','着陆后','着陆后','停机'],['parking','停机','停机','停机'],['securing-aircraft','安全离机','安全离机','停机']].map(([id,name,shortName,group])=>({id,name,shortName,group}as FlightPhase));
 export const emptyBaseOutputs:PhaseOutput[]=phases.map(p=>({phaseId:p.id,items:[]}));
 const now=()=>new Date().toISOString();
-export function newSession():FlightSession{return{id:'current',currentPhaseIndex:0,completedPhaseIds:[],checked:{},environment:{},activeSubjects:[],createdAt:now(),updatedAt:now()}}
+export function newSession():FlightSession{return{id:'current',currentPhaseIndex:0,completedPhaseIds:[],checked:{},environment:{},f1FlightInfo:{routeType:'domestic'},activeSubjects:[],createdAt:now(),updatedAt:now()}}
 export const defaultRules:EnvironmentRule[]=[
  {id:'rule-high-temperature',name:'高温运行',enabled:true,groups:[{id:'group-high-temp',conditions:[{id:'cond-high-temp',field:'temperature',operator:'gt',value:30}]}],outputs:[{phaseId:'cockpit-preparation',items:[{id:'high-temp-flap1-yellow-blue-pump',text:'黄+蓝超压泵放襟翼 1',kind:'check',severity:'caution',order:10}]}],updatedAt:now()},
  {id:'rule-winter-template',name:'冬季运行（模板）',enabled:false,groups:[{id:'group-winter-temp',conditions:[{id:'cond-winter-temp',field:'temperature',operator:'lte',value:0}]}],outputs:[],updatedAt:now()},
@@ -37,37 +38,30 @@ export const defaultRules:EnvironmentRule[]=[
 
 export const f1GuidePhases:{id:string;name:string;items:FlowItem[]}[]=[
  {id:'online-prep',name:'网上准备',items:[
-  {id:'online-message',kind:'check',severity:'info',order:1,text:'提前一天发消息，确认任务、时间、集合要求。'},
-  {id:'online-plan-download',kind:'check',severity:'info',order:2,text:'起飞前约 3 小时可下载飞行计划，提前看航路、油量、天气和特殊信息。'},
-  {id:'online-check-in-rule',kind:'check',severity:'caution',order:3,text:'天府早班按要求提前完成签到；双流通常不用提前一天签到，按任务时间到场。'},
-  {id:'online-study',kind:'check',severity:'info',order:4,text:'复习部门手册、理论程序技术知识、舱单、通讯记录本、监控飞机相关知识。'},
-  {id:'online-risk-time',kind:'risk',severity:'caution',order:5,text:'早班、异地、基地公寓和调度签到时间容易混淆，务必按当天任务核对。'}
+  {id:'online-message',kind:'check',severity:'info',order:1,text:'提前一天给机长发消息，确认任务、起飞时间、准备时间和集合要求。'},
+  {id:'online-risk-time',kind:'risk',severity:'caution',order:2,text:'早班、异地、基地公寓和调度签到时间容易混淆，务必按当天航班信息核对。'}
  ]},
  {id:'briefing-room',name:'准备室',items:[
   {id:'brief-screen',kind:'check',severity:'info',order:1,text:'到准备室看屏幕，确认自己的准备桌，打开对应电脑。'},
   {id:'brief-login',kind:'check',severity:'info',order:2,text:'在桌面系统登录，完成签到，查看飞行计划、飞行前自查、签派放行/任务书。'},
-  {id:'brief-docs',kind:'check',severity:'info',order:3,text:'下载并检查飞行计划、飞行前自查、签派放行、天气报文、特殊天气和飞机状态/时报报告。'},
-  {id:'brief-fuel',kind:'check',severity:'caution',order:4,text:'核对油量；天气不好或备降风险时，关注是否需要增加油量并与机长确认。'},
-  {id:'brief-paperwork',kind:'check',severity:'info',order:5,text:'按要求打印任务书、油单/签派放行、飞行计划等纸质资料。'},
-  {id:'brief-taskbook',kind:'check',severity:'info',order:6,text:'开车前约 10 分钟去打印/领取任务书，核实航班号和机组姓名。'},
-  {id:'brief-risk-seat',kind:'risk',severity:'caution',order:7,text:'F1 阶段跟随机长/教员安排，座位、任务和观察重点以现场分工为准。'}
+  {id:'brief-plan-download',kind:'check',severity:'info',order:3,text:'起飞前约 3 小时可下载飞行计划，提前看航路、油量、天气和特殊信息。'},
+  {id:'brief-fuel',kind:'check',severity:'caution',order:4,text:'核对油量，并在手机和 iPad 上记录。'},
+  {id:'brief-risk-seat',kind:'risk',severity:'caution',order:5,text:'F1 阶段跟随机长/教员安排，座位、任务和观察重点以现场分工为准。'}
  ]},
  {id:'crew-bus',name:'机组车去机场',items:[
   {id:'bus-workbench',kind:'check',severity:'info',order:1,text:'机组车上打开 3.0 工作台，进入审批/协同单等页面，关注机组协同单。'},
-  {id:'bus-captain-first',kind:'check',severity:'caution',order:2,text:'协同单通常等机长先选/划到底后再填写，避免抢填或填错。'},
-  {id:'bus-standby',kind:'check',severity:'info',order:3,text:'驻外或特殊任务按要求准备工作单，必要时在车上完成。'},
-  {id:'bus-brief',kind:'check',severity:'info',order:4,text:'完成机组协同单，航班之家审批中确认第五码，和组员简单沟通任务分工。'}
+  {id:'bus-standby',kind:'check',severity:'info',order:2,text:'驻外或特殊任务按要求准备工作单，必要时在车上完成。'},
+  {id:'bus-captain-first',kind:'risk',severity:'caution',order:3,text:'协同单通常等机长先选/划到底后再填写，避免抢填或填错。'}
  ]},
  {id:'on-board',name:'上飞机',items:[
-  {id:'board-seat',kind:'check',severity:'info',order:1,text:'完成机组协同单后按安排上机；可坐观察员位/第四座等，以机组安排为准。'},
-  {id:'board-equipment',kind:'check',severity:'caution',order:2,text:'检查起落架销子堵盖、应急设备、排雨剂量、滑油量/剩油、纸质 OEB、48 小时内 DDL。'},
-  {id:'board-recorder',kind:'check',severity:'caution',order:3,text:'插录音笔，耳机线两个插头都要插，笛令前可先开录音。'},
-  {id:'board-walkaround',kind:'check',severity:'info',order:4,text:'跟随机组做绕机检查，拿油单，核实飞机注册号和航班号。'},
-  {id:'board-paper',kind:'check',severity:'info',order:5,text:'填写通讯记录本、监控飞机/观察记录相关内容，按需上传电子油单和签过字的舱单。'},
-  {id:'board-loadsheet',kind:'check',severity:'caution',order:6,text:'飞行中照舱单把人数、商载、起飞重量等填好；落地看时间单，记录剩油。'},
-  {id:'board-flb-tlb',kind:'check',severity:'caution',order:7,text:'先完成任务书，再填写 FLB；TLB 通常填 NIL。任务书填错可回来重新打印。'},
-  {id:'board-mcdu',kind:'check',severity:'info',order:8,text:'观察 MCDU 输入顺序：INIT、F-PLN、RAD NAV、性能等；记录 ABCD/E 插入点逻辑。'},
-  {id:'board-risk-paper',kind:'risk',severity:'caution',order:9,text:'纸质资料、油单、任务书、FLB/TLB、通讯记录本容易漏填或填错，建议按固定顺序检查。'}
+  {id:'board-equipment',kind:'check',severity:'caution',order:1,text:'检查起落架销子堵盖、应急设备、排雨剂量、滑油量/剩油、纸质 OEB、48 小时内 DDL。'},
+  {id:'board-recorder',kind:'check',severity:'caution',order:2,text:'插录音笔，耳机线两个插头都要插，简令前要先开录音。'},
+  {id:'board-walkaround',kind:'check',severity:'info',order:3,text:'跟随机组做绕机检查，拿油单，核实飞机注册号和航班号，并签字上传 EFB 和任务书。'},
+  {id:'board-paper',kind:'check',severity:'info',order:4,text:'填写通讯记录本、监控飞机/观察记录相关内容。'},
+  {id:'board-loadsheet',kind:'check',severity:'caution',order:5,text:'飞行中照舱单把人数、商载、起飞重量等填好；落地看时间单，记录剩油。'},
+  {id:'board-flb-tlb',kind:'check',severity:'caution',order:6,text:'先完成任务书，再填写 FLB；TLB 通常填 NIL。任务书填错可回来重新打印。'},
+  {id:'board-mcdu',kind:'check',severity:'info',order:7,text:'观察 MCDU 输入顺序：INIT、F-PLN、RAD NAV、性能等；记录 ABCD/E 插入点逻辑。'},
+  {id:'board-risk-paper',kind:'risk',severity:'caution',order:8,text:'纸质资料、油单、任务书、FLB/TLB、通讯记录本容易漏填或填错，建议按固定顺序检查。'}
  ]},
  {id:'in-flight',name:'飞行中',items:[
   {id:'flight-observe',kind:'check',severity:'info',order:1,text:'观察标准喊话、频率转换、滑行路线、跑道进离场路线、MCDU/FCU/监控分工。'},
