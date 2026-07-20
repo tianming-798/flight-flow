@@ -1,7 +1,8 @@
 import type{EnvironmentRule,FlightPhase,FlightSession,FlowItem,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.3.5';
-export const APP_UPDATED_AT='2026-07-18 22:10';
+export const APP_VERSION='0.3.6';
+export const APP_UPDATED_AT='2026-07-20 20:30';
 export const changelog=[
+ {version:'0.3.6',date:'2026-07-20 20:30',items:['F1 微信模板中学员姓名改为取粘贴机组信息里的最后一个中文姓名。','机型识别改为只按机号后缀查内置机号-机型表，不再使用 ACT 机型代码。','补全用户提供图片中的机号-机型映射，并加固时间计算器，避免无效输入导致结果异常。']},
  {version:'0.3.5',date:'2026-07-18 22:10',items:['F1 跟班删除上方单独“复制给机长的时间信息”，保留完整的给机长/二哥微信模板复制功能。']},
  {version:'0.3.4',date:'2026-07-18 21:55',items:['F1 跟班新增粘贴航班信息解析，可自动提取机组姓名、航班号、机号、起飞时间和航线。','根据机号后缀识别用户提供表格中的 A320 系列具体机型，并生成给机长/二哥的可复制微信模板。','模板内飞行经历、保留/OEB、第几次参与运行等需要人工确认的信息统一用“——”提醒修改。']},
  {version:'0.3.3',date:'2026-07-18 21:20',items:['F1 复制给机长的信息删除起飞机场。','起飞时间和准备时间改为“今天/明天 HH:mm”格式，更适合直接发消息。']},
