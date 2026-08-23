@@ -1,7 +1,8 @@
 import type{EnvironmentRule,FlightPhase,FlightSession,FlowItem,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.3.7';
-export const APP_UPDATED_AT='2026-07-21 09:40';
+export const APP_VERSION='0.3.8';
+export const APP_UPDATED_AT='2026-08-23 22:30';
 export const changelog=[
+ {version:'0.3.8',date:'2026-08-23 22:30',items:['新增“值勤计算”小工具，嵌入顶部工具栏。','值勤计算器保留原 HTML 的非扩编/扩编规则和中途休息顺延逻辑，并重做为 Flight Flow 暗色 iPad 风格界面。','值勤计算器时间输入改为更适合 iPad 的文本输入，支持 05:30、5:30、0530、530，并修复连续录入休息时间时状态可能不刷新的问题。','继续完善国内三字码航线中文化与 F1 粘贴航班信息解析。']},
  {version:'0.3.7',date:'2026-07-21 09:40',items:['修复 F1 粘贴航班信息时 Ta 等级和无等级姓名无法正确识别的问题。','机组人员现在从机组人员区块提取中文姓名，机长为第一个、二哥为第二个、本人为最后一个。','新增国内常用三字码城市映射，航段可自动生成中文城市名，并让粘贴航班信息也能触发天府早班签到提醒。']},
  {version:'0.3.6',date:'2026-07-20 20:30',items:['F1 微信模板中学员姓名改为取粘贴机组信息里的最后一个中文姓名。','机型识别改为只按机号后缀查内置机号-机型表，不再使用 ACT 机型代码。','补全用户提供图片中的机号-机型映射，并加固时间计算器，避免无效输入导致结果异常。']},
  {version:'0.3.5',date:'2026-07-18 22:10',items:['F1 跟班删除上方单独“复制给机长的时间信息”，保留完整的给机长/二哥微信模板复制功能。']},
