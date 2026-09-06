@@ -13,5 +13,5 @@ export interface TrainingSubject{id:string;name:string;aliases:string[];keywords
 export interface ActiveSubject{subjectId:string;status:'active'|'resolved';activatedAt:string;resolvedAt?:string}
 export interface F1FlightInfo{departureAirport?:'TFU'|'CTU';routeType?:'domestic'|'international';departureDate?:string;departureClock?:string;departureTime?:string;rawFlightText?:string}
 export interface FlightSession{id:'current';currentPhaseIndex:number;completedPhaseIds:string[];checked:Record<string,boolean>;environment:EnvironmentData;f1FlightInfo?:F1FlightInfo;activeSubjects:ActiveSubject[];createdAt:string;updatedAt:string}
-export interface AppBackup{version:1;exportedAt:string;session:FlightSession;baseOutputs:PhaseOutput[];rules:EnvironmentRule[];subjects:TrainingSubject[]}
+export interface AppBackup{version:1;exportedAt:string;session:FlightSession;baseOutputs:PhaseOutput[];rules:EnvironmentRule[];subjects:TrainingSubject[];crewTemplates?:{captain:string;second:string}}
 export interface DisplayItem extends FlowItem{checkKey:string;sources:string[]}
