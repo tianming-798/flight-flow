@@ -1,7 +1,8 @@
 import type{EnvironmentRule,FlightPhase,FlightSession,FlowItem,PhaseOutput,TrainingSubject}from'./types';
-export const APP_VERSION='0.4.3';
-export const APP_UPDATED_AT='2026-09-06';
+export const APP_VERSION='0.4.4';
+export const APP_UPDATED_AT='2026-09-29';
 export const changelog=[
+ {version:'0.4.4',date:'2026-09-29',items:['F1 微信生成器升级为一线高频真实话术，默认去除占位破折号，生成即可直接发送。','新增称呼智能候选：自动推断并提供后单字哥、后双字哥、机长、教员等多种称谓标签，解决三个字姓名难称呼与生僻字问题。','支持“您 / 你”尊称一键切换，正文敬语和口吻自动联动。','新增飞机状态快捷设置：默认“正常（无保留无OEB）”，亦可一键填写自定义保留与说明。']},
  {version:'0.4.3',date:'2026-09-06',items:['线上版名称改为“飞行工具箱”。','主页工具顺序调整为 F1 跟班、承包时间、值勤计算、飞行进程。','飞行进程工具卡增加“测试阶段”备注。']},
  {version:'0.4.2',date:'2026-09-05',items:['优化页面流畅度：移除持续背景动画和大面积实时模糊。','缩短并简化卡片、弹窗和结果动效，仅保留轻量 transform 与 opacity 反馈。','为触摸设备减少悬浮效果，降低阴影重绘和 GPU 合成压力。']},
  {version:'0.4.1',date:'2026-09-05',items:['主页精简为飞行进程、F1 跟班、承包时间和值勤计算，环境、飞机、模拟机和运行规则归入飞行进程。','承包时间改为四步引导流程，支持粘贴排班或手动添加，并可选按折算时长计算小时费收入。','增加页面入场、卡片悬浮、弹性按钮、结果展开和柔和背景动效。']},

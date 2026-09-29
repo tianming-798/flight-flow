@@ -39,9 +39,30 @@ function Modal({title,onClose,children,wide=false}:{title:string;onClose:()=>voi
 }
 function Pill({children,tone='muted'}:{children:ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
 
+function getAppellationCandidates(name:string,isCaptain=false):string[]{
+ const t=(name||'').trim();
+ if(!t)return isCaptain?['机长','教员','哥']:['二哥','哥','师兄'];
+ const len=t.length,arr:string[]=[];
+ if(len===2){
+  arr.push(t[1]+'哥',t[0]+'哥');
+  if(isCaptain)arr.push(t[0]+'教',t[0]+'机长');
+  arr.push(t[1]+'姐',t[0]+'姐');
+ }else if(len===3){
+  arr.push(t[2]+'哥',t.slice(1)+'哥');
+  if(isCaptain)arr.push(t[0]+'教',t[0]+'机长');
+  arr.push(t[0]+'哥',t[1]+'哥',t[2]+'姐',t.slice(1)+'姐');
+ }else if(len>=4){
+  arr.push(t.slice(-2)+'哥',t.slice(-1)+'哥');
+  if(isCaptain)arr.push(t.slice(0,2)+'教',t.slice(0,2)+'机长');
+ }else{
+  arr.push(t+'哥');
+ }
+ return[...new Set(arr)];
+}
+
 const defaultCrewTemplates={
- captain:'{称呼}您好：我是{日期}的二大队二中队F1学员{我}，满足90天3次起落\n飞行经历时间：——\n{日期}的航班计划：{航线}\n机型：{机型} 机号：{机号}\n航班号：{航班号}\n准备时间：{准备时间}\n起飞时间：{起飞时间}\n航班信息：飞机有一条保留：——；有一条 OEB：——\n\n我已完成全部网上航前准备，{日期}是我第——次参与航班运行，运行经验较少，还望{称呼}多多包涵。一切听您指挥，绝不擅自行动！有不会的地方还麻烦{称呼}多赐教，谢谢{称呼}~{日期}见！',
- second:'{称呼}您好：我是{日期}的二大队二中队F1学员{我}，满足90天3次起落\n飞行经历时间：——\n{日期}的航班计划：{航线}\n机型：{机型} 机号：{机号}\n航班号：{航班号}\n准备时间：{准备时间}\n起飞时间：{起飞时间}\n航班信息：飞机有一条保留：——；有一条 OEB：——\n\n我已完成全部网上航前准备，{日期}是我第——次参与航班运行，运行经验较少，还望{称呼}多多包涵。一切听您和机长指挥，绝不擅自行动！有不会的地方还麻烦{称呼}多赐教，谢谢{称呼}~{日期}见！'
+ captain:'{称呼}{代词}好：我是{日期}参与跟班的F1学员{我}。\n{日期}的航班计划：{航线}\n机型：{机型} 机号：{机号}\n航班号：{航班号}\n准备时间：{准备时间}\n起飞时间：{起飞时间}\n飞机情况：{飞机状态}\n\n网上准备已全部完成。刚参与运行不久，运行经验较少，还望{称呼}多多包涵，一切听{代词}指挥~{日期}见！',
+ second:'{称呼}{代词}好：我是{日期}参与跟班的F1学员{我}。\n{日期}的航班计划：{航线}\n机型：{机型} 机号：{机号}\n航班号：{航班号}\n准备时间：{准备时间}\n起飞时间：{起飞时间}\n飞机情况：{飞机状态}\n\n网上准备已全部完成。刚参与运行不久，运行经验较少，还望{称呼}多多包涵，一切听{代词}和机长指挥~{日期}见！'
 };
 type CrewTemplates=typeof defaultCrewTemplates;
 
@@ -66,7 +87,21 @@ function OutputEditor({outputs,phaseId,onChange}:{outputs:PhaseOutput[];phaseId:
 function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange:(next:FlightSession)=>void;onClose:()=>void}){
  const checked=session.checked,info:F1FlightInfo={routeType:'domestic',...(session.f1FlightInfo??{})};
  const[phaseId,setPhaseId]=useState(f1GuidePhases[0].id),[durationA,setDurationA]=useState(''),[durationB,setDurationB]=useState(''),[editingTemplates,setEditingTemplates]=useState(false),[copyState,setCopyState]=useState('');
- const[crewTemplates,setCrewTemplates]=useState<CrewTemplates>(()=>{try{return{...defaultCrewTemplates,...JSON.parse(localStorage.getItem('flight-flow-crew-templates')||'{}')}}catch{return defaultCrewTemplates}});
+ const[crewTemplates,setCrewTemplates]=useState<CrewTemplates>(()=>{
+  try{
+   const saved=JSON.parse(localStorage.getItem('flight-flow-crew-templates')||'{}');
+   if(saved.captain&&(saved.captain.includes('二大队二中队')||saved.captain.includes('——')))delete saved.captain;
+   if(saved.second&&(saved.second.includes('二大队二中队')||saved.second.includes('——')))delete saved.second;
+   return{...defaultCrewTemplates,...saved};
+  }catch{return defaultCrewTemplates;}
+ });
+ const[captainAppellation,setCaptainAppellation]=useState('');
+ const[secondAppellation,setSecondAppellation]=useState('');
+ const[captainPronoun,setCaptainPronoun]=useState<'您'|'你'>('您');
+ const[secondPronoun,setSecondPronoun]=useState<'您'|'你'>('你');
+ const[planeStatusOption,setPlaneStatusOption]=useState<'normal'|'custom'>('normal');
+ const[customPlaneStatus,setCustomPlaneStatus]=useState('');
+
  const parseFlightText=(raw:string)=>{const text=raw||'',lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const flt=text.match(/航班号\[FLT\]\s*([A-Z0-9/]+)/)?.[1]??'',arn=(text.match(/机号\[ARN\]\s*(B-[A-Z0-9]+)/i)?.[1]??'').toUpperCase();const std=text.match(/起飞时间\[STD\]\s*(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/);const crewBlock=(text.match(/机组人员([\s\S]*?)(?:机型\[ACT\]|机号\[ARN\]|起飞时间\[STD\]|$)/)?.[1]??text);const crew=crewBlock.split(/\r?\n/).map(x=>x.trim()).map(l=>l.match(/^([\u4e00-\u9fa5]{2,4})(?:\s|$)/)?.[1]??'').filter(Boolean);const segs=[...text.matchAll(/[A-Z]{2}\d+\s+([A-Z]{3})-([A-Z]{3})/g)];const routeCodes=segs.reduce<string[]>((arr,m)=>{const a=m[1],b=m[2];if(arr.at(-1)!==a)arr.push(a);arr.push(b);return arr},[]);const route=routeCodes.length?routeCodes.map(c=>airportNameByCode[c]??c).join('-'):(text.match(/航线\[AIRLINE\]\s*([^\n]+)/)?.[1]??'').trim();const tail=arn.replace('B-',''),model=aircraftTailTypeMap[tail]??'——';return{flt,arn,stdDate:std?.[1]??'',stdClock:std?.[2]??'',crew,route,model}};
  const parsed=parseFlightText(info.rawFlightText??'');
  const legacyDeparture=info.departureTime&&info.departureTime.includes('T')?info.departureTime.split('T'):null;
@@ -87,8 +122,44 @@ function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange
  const enrichedPhases=f1GuidePhases.map(p=>p.id==='online-prep'?{...p,items:[...dynamicItems,...p.items]}:p);
  const phase=enrichedPhases.find(p=>p.id===phaseId)??enrichedPhases[0],risks=phase.items.filter(i=>i.kind==='risk'),checks=phase.items.filter(i=>i.kind==='check');
  const done=checks.filter(i=>checked['f1:'+phase.id+':'+i.id]).length,total=enrichedPhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check').length,0),allDone=enrichedPhases.reduce((sum,p)=>sum+p.items.filter(i=>i.kind==='check'&&checked['f1:'+p.id+':'+i.id]).length,0);
- const buildCrewMessage=(name:string,template:string)=>{const last=name?name.slice(-1):'——',day=departure?formatWechatTime(departure).replace(/(上午|下午|晚上).*/,''):'明天';const values:Record<string,string>={'称呼':last+'哥','姓名':name||'——','我':parsed.crew.at(-1)??'——','日期':day,'航线':parsed.route||'——','机型':parsed.model,'机号':parsed.arn||'——','航班号':parsed.flt||'——','准备时间':formatWechatTime(prepTime),'起飞时间':formatWechatTime(departure)};return template.replace(/\{([^{}]+)\}/g,(all,key)=>values[key]??all)};
- const captainMessage=buildCrewMessage(parsed.crew[0]??'',crewTemplates.captain),secondMessage=buildCrewMessage(parsed.crew[1]??'',crewTemplates.second);
+
+ const captainCandidates=getAppellationCandidates(parsed.crew[0]??'',true);
+ const secondCandidates=getAppellationCandidates(parsed.crew[1]??'',false);
+ const effectiveCaptainAppellation=captainAppellation.trim()||captainCandidates[0]||'机长';
+ const effectiveSecondAppellation=secondAppellation.trim()||secondCandidates[0]||'二哥';
+ const effectivePlaneStatus=planeStatusOption==='normal'?'正常，无保留项目，无 OEB':(customPlaneStatus.trim()||'正常，无保留项目，无 OEB');
+
+ const buildCrewMessage=(name:string,template:string,appellation:string,pronoun:'您'|'你',isCaptain:boolean)=>{
+  const day=departure?formatWechatTime(departure).replace(/(上午|下午|晚上).*/,''):'明天';
+  const values:Record<string,string>={
+   '称呼':appellation,
+   '代词':pronoun,
+   '代词指挥':isCaptain?`听${pronoun}指挥`:`听${pronoun}和机长指挥`,
+   '姓名':name||'——',
+   '我':parsed.crew.at(-1)??'——',
+   '日期':day,
+   '航线':parsed.route||'——',
+   '机型':parsed.model,
+   '机号':parsed.arn||'——',
+   '航班号':parsed.flt||'——',
+   '准备时间':formatWechatTime(prepTime),
+   '起飞时间':formatWechatTime(departure),
+   '飞机状态':effectivePlaneStatus,
+   '放行及保留情况':effectivePlaneStatus
+  };
+  let res=template.replace(/\{([^{}]+)\}/g,(all,key)=>values[key]??all);
+  if(pronoun==='你'){
+   res=res.replace(new RegExp(`${appellation}您好`,'g'),`${appellation}你好`);
+   res=res.replace(/听您指挥/g,'听你指挥').replace(/听您和机长指挥/g,'听你和机长指挥');
+  }else if(pronoun==='您'){
+   res=res.replace(new RegExp(`${appellation}你好`,'g'),`${appellation}您好`);
+   res=res.replace(/听你指挥/g,'听您指挥').replace(/听你和机长指挥/g,'听您和机长指挥');
+  }
+  return res;
+ };
+
+ const captainMessage=buildCrewMessage(parsed.crew[0]??'',crewTemplates.captain,effectiveCaptainAppellation,captainPronoun,true);
+ const secondMessage=buildCrewMessage(parsed.crew[1]??'',crewTemplates.second,effectiveSecondAppellation,secondPronoun,false);
  const saveTemplates=()=>{localStorage.setItem('flight-flow-crew-templates',JSON.stringify(crewTemplates));setEditingTemplates(false);setCopyState('模板已保存在此设备');setTimeout(()=>setCopyState(''),1800)};
  const renderGuideItem=(item:FlowItem)=><article className={'flow-item '+item.kind+' '+item.severity+(checked['f1:'+phase.id+':'+item.id]?' checked':'')} key={item.id} onClick={()=>item.kind==='check'&&onChange({...session,checked:{...checked,['f1:'+phase.id+':'+item.id]:!checked['f1:'+phase.id+':'+item.id]}})}>{item.kind==='check'?<button className="checkbox">{checked['f1:'+phase.id+':'+item.id]&&<Check/>}</button>:<div className="risk-icon">{item.severity==='critical'?<ShieldAlert/>:<AlertTriangle/>}</div>}<div><div className="item-meta"><span>{item.kind==='check'?'易忘项目':severityLabel[item.severity]+'风险'}</span><Pill tone={item.kind==='risk'?item.severity:'info'}>{item.id.startsWith('tfu-')?'航班信息':phase.name}</Pill></div><p>{item.text}</p></div></article>;
  return <Modal title="F1 跟班流程" onClose={onClose} wide><p className="hint">先填起飞机场和起飞时间，系统会自动算准备时间；F1 流程独立于21个运行阶段。</p>
@@ -98,7 +169,7 @@ function F1GuideModal({session,onChange,onClose}:{session:FlightSession;onChange
    <label>日期（可不填）<input type="date" value={departureDate} onChange={e=>patchInfo({departureDate:e.target.value||undefined,departureTime:undefined})}/></label>
    <label>起飞时刻<input type="time" value={departureClock} onChange={e=>patchInfo({departureClock:e.target.value||undefined,departureTime:undefined})}/></label>
   </div>{isTfuEarly&&<div className="warning-callout"><AlertTriangle/><p>天府 12:00 以前起飞：前一天 21:00 前完成签到。这个提醒也会出现在「网上准备」里。</p></div>}</section>
-  <section className="f1-paste-card"><div className="card-title-row"><div><h3>微信消息生成器</h3><p>粘贴航班信息后自动填入你的模板。</p></div><button className="small-btn" onClick={()=>setEditingTemplates(v=>!v)}><Edit3/>{editingTemplates?'查看效果':'编辑模板'}</button></div><textarea value={info.rawFlightText??''} onChange={e=>patchInfo({rawFlightText:e.target.value})} placeholder="粘贴航班号、机号、起飞时间、航段和机组人员..."/><div className="f1-parse-preview"><span>机长：{parsed.crew[0]??'——'}</span><span>二哥：{parsed.crew[1]??'——'}</span><span>我：{parsed.crew.at(-1)??'——'}</span><span>机型：{parsed.model}</span><span>机号：{parsed.arn||'——'}</span><span>航班：{parsed.flt||'——'}</span><span>航线：{parsed.route||'——'}</span></div>{editingTemplates?<div className="template-editor"><p className="template-help">可用变量：{['称呼','姓名','我','日期','航线','机型','机号','航班号','准备时间','起飞时间'].map(x=><code key={x}>{'{'+x+'}'}</code>)}</p><label>给机长的模板<textarea value={crewTemplates.captain} onChange={e=>setCrewTemplates({...crewTemplates,captain:e.target.value})}/></label><label>给二哥的模板<textarea value={crewTemplates.second} onChange={e=>setCrewTemplates({...crewTemplates,second:e.target.value})}/></label><div className="template-actions"><button className="ghost-btn" onClick={()=>setCrewTemplates(defaultCrewTemplates)}>恢复默认</button><button className="primary-btn" onClick={saveTemplates}>保存模板</button></div></div>:<div className="crew-copy-grid"><div><h4>给机长</h4><textarea readOnly value={captainMessage}/><button className="primary-btn" onClick={()=>copy(captainMessage,`给${parsed.crew[0]?.slice(-1)??'机长'}哥的消息`)}>复制给{parsed.crew[0]?.slice(-1)??'机长'}哥</button></div><div><h4>给二哥</h4><textarea readOnly value={secondMessage}/><button className="primary-btn" onClick={()=>copy(secondMessage,`给${parsed.crew[1]?.slice(-1)??'二'}哥的消息`)}>复制给{parsed.crew[1]?.slice(-1)??'二'}哥</button></div></div>}{copyState&&<div className="copy-toast">{copyState}</div>}</section>
+  <section className="f1-paste-card"><div className="card-title-row"><div><h3>微信消息生成器</h3><p>粘贴航班信息后自动填入模板，支持一键切换称谓、您/你与飞机状态。</p></div><button className="small-btn" onClick={()=>setEditingTemplates(v=>!v)}><Edit3/>{editingTemplates?'查看效果':'编辑模板'}</button></div><textarea value={info.rawFlightText??''} onChange={e=>patchInfo({rawFlightText:e.target.value})} placeholder="粘贴航班号、机号、起飞时间、航段和机组人员..."/><div className="f1-parse-preview"><span>机长：{parsed.crew[0]??'——'}</span><span>二哥：{parsed.crew[1]??'——'}</span><span>我：{parsed.crew.at(-1)??'——'}</span><span>机型：{parsed.model}</span><span>机号：{parsed.arn||'——'}</span><span>航班：{parsed.flt||'——'}</span><span>航线：{parsed.route||'——'}</span></div><div className="f1-plane-status-bar"><div className="status-bar-title"><span>飞机状态：</span><div className="segmented-mini"><button className={planeStatusOption==='normal'?'active':''} onClick={()=>setPlaneStatusOption('normal')}>正常（无保留无OEB）</button><button className={planeStatusOption==='custom'?'active':''} onClick={()=>setPlaneStatusOption('custom')}>有保留/特殊说明</button></div></div>{planeStatusOption==='custom'&&<input className="plane-status-input" value={customPlaneStatus} onChange={e=>setCustomPlaneStatus(e.target.value)} placeholder="例如：飞机有一条保留：APU失效；无 OEB"/>}</div>{editingTemplates?<div className="template-editor"><p className="template-help">可用变量：{['称呼','代词','飞机状态','姓名','我','日期','航线','机型','机号','航班号','准备时间','起飞时间'].map(x=><code key={x}>{'{'+x+'}'}</code>)}</p><label>给机长的模板<textarea value={crewTemplates.captain} onChange={e=>setCrewTemplates({...crewTemplates,captain:e.target.value})}/></label><label>给二哥的模板<textarea value={crewTemplates.second} onChange={e=>setCrewTemplates({...crewTemplates,second:e.target.value})}/></label><div className="template-actions"><button className="ghost-btn" onClick={()=>setCrewTemplates(defaultCrewTemplates)}>恢复默认</button><button className="primary-btn" onClick={saveTemplates}>保存模板</button></div></div>:<div className="crew-copy-grid"><div className="crew-copy-card"><div className="crew-card-head"><div className="crew-role-title"><h4>给机长</h4><small>{parsed.crew[0]?`（${parsed.crew[0]}）`:''}</small></div><div className="pronoun-toggle"><button className={captainPronoun==='您'?'active':''} onClick={()=>setCaptainPronoun('您')}>用“您”</button><button className={captainPronoun==='你'?'active':''} onClick={()=>setCaptainPronoun('你')}>用“你”</button></div></div><div className="appellation-row"><span className="appellation-label">称呼快捷选：</span><div className="appellation-pills">{captainCandidates.map(c=><button key={c} className={'appellation-pill '+(effectiveCaptainAppellation===c?'active':'')} onClick={()=>setCaptainAppellation(c)}>{c}</button>)}</div><input className="appellation-custom-input" value={captainAppellation} onChange={e=>setCaptainAppellation(e.target.value)} placeholder="自定义称呼"/></div><textarea readOnly value={captainMessage}/><button className="primary-btn" onClick={()=>copy(captainMessage,`给${effectiveCaptainAppellation}的消息`)}>复制给{effectiveCaptainAppellation}</button></div><div className="crew-copy-card"><div className="crew-card-head"><div className="crew-role-title"><h4>给二哥</h4><small>{parsed.crew[1]?`（${parsed.crew[1]}）`:''}</small></div><div className="pronoun-toggle"><button className={secondPronoun==='你'?'active':''} onClick={()=>setSecondPronoun('你')}>用“你”</button><button className={secondPronoun==='您'?'active':''} onClick={()=>setSecondPronoun('您')}>用“您”</button></div></div><div className="appellation-row"><span className="appellation-label">称呼快捷选：</span><div className="appellation-pills">{secondCandidates.map(c=><button key={c} className={'appellation-pill '+(effectiveSecondAppellation===c?'active':'')} onClick={()=>setSecondAppellation(c)}>{c}</button>)}</div><input className="appellation-custom-input" value={secondAppellation} onChange={e=>setSecondAppellation(e.target.value)} placeholder="自定义称呼"/></div><textarea readOnly value={secondMessage}/><button className="primary-btn" onClick={()=>copy(secondMessage,`给${effectiveSecondAppellation}的消息`)}>复制给{effectiveSecondAppellation}</button></div></div>}{copyState&&<div className="copy-toast">{copyState}</div>}</section>
   <section className="f1-calculator"><h3>时间计算器</h3><p>可以输入“1小时20分钟”“1:20”“1.20”“80”等格式，其中 1.20 表示 1小时20分钟。</p><div><input value={durationA} onChange={e=>setDurationA(e.target.value)} placeholder="例如 1.20"/><span>+</span><input value={durationB} onChange={e=>setDurationB(e.target.value)} placeholder="例如 1:54"/><strong>= {formatDuration(durationTotal)}</strong></div></section>
   <div className="f1-summary"><div><span>总进度</span><b>{allDone}<small>/{total}</small></b></div><div><span>当前小阶段</span><b>{phase.name}</b><small>{done}/{checks.length} 项</small></div></div><div className="split-editor f1-guide"><nav>{enrichedPhases.map((p,i)=>{const pc=p.items.filter(x=>x.kind==='check'),pd=pc.filter(x=>checked['f1:'+p.id+':'+x.id]).length;return <button className={phase.id===p.id?'active':''} onClick={()=>setPhaseId(p.id)} key={p.id}><span>{String(i+1).padStart(2,'0')}</span>{p.name}<em>{pd}/{pc.length}</em></button>})}</nav><main><h3>{phase.name}</h3><div className="item-list separated-list">{risks.length>0&&<section className="item-section risk-section"><h3><ShieldAlert/>风险提示</h3>{risks.map(renderGuideItem)}</section>}{checks.length>0&&<section className="item-section check-section"><h3><ListChecks/>易忘提醒</h3>{checks.map(renderGuideItem)}</section>}</div></main></div></Modal>
 }

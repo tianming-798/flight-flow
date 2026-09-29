@@ -44,3 +44,28 @@ body{color:var(--text);background:#f5f5f7}button{cursor:pointer}.toolkit-home{mi
 .tool-tile footer{gap:8px}.tile-note{margin-left:auto;border:1px solid currentColor;border-radius:999px;padding:3px 8px;font-size:10px;font-weight:750;line-height:1;opacity:.82}
 .modal{box-shadow:0 22px 60px #00000024}.primary-btn:hover{box-shadow:0 4px 12px #0071e324}.contract-results .contract-stats article:hover{transform:none;box-shadow:none}.contract-row:not(.contract-head):hover{background:#f8f8fa}.contract-total,.pay-card.active{box-shadow:0 7px 20px #0000000a}
 @media(hover:none){.tool-tile:hover,.primary-btn:hover,.contract-results .contract-stats article:hover{transform:none}.tool-tile:hover{box-shadow:0 8px 24px #0000000a}}
+
+/* F1 WeChat Message Generator Controls */
+.f1-plane-status-bar{margin:12px 0 16px;padding:12px 14px;background:#f5f5f7;border:1px solid #e5e5ea;border-radius:14px;display:flex;flex-direction:column;gap:9px}
+.status-bar-title{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:650;color:#1d1d1f}
+.segmented-mini{display:flex;background:#e5e5ea;border-radius:8px;padding:2px}
+.segmented-mini button{border:0;background:transparent;color:#6e6e73;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .18s ease}
+.segmented-mini button.active{background:#fff;color:#1d1d1f;box-shadow:0 1px 4px #00000015}
+.plane-status-input{width:100%;font-size:12px;min-height:36px!important}
+
+.crew-copy-card{display:flex;flex-direction:column;background:#fbfbfd;border:1px solid #e5e5ea;border-radius:18px;padding:15px;gap:9px}
+.crew-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.crew-role-title{display:flex;align-items:baseline;gap:6px}
+.crew-role-title h4{margin:0;font-size:14px;color:#0071e3;font-weight:700}
+.crew-role-title small{font-size:12px;color:#6e6e73}
+.pronoun-toggle{display:flex;background:#e5e5ea;border-radius:8px;padding:2px}
+.pronoun-toggle button{border:0;background:transparent;color:#6e6e73;font-size:11px;font-weight:650;padding:4px 9px;border-radius:6px;cursor:pointer;transition:all .18s ease}
+.pronoun-toggle button.active{background:#0071e3;color:#fff;box-shadow:0 1px 4px #0071e330}
+
+.appellation-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:4px 0}
+.appellation-label{font-size:11px;color:#6e6e73;font-weight:600}
+.appellation-pills{display:flex;gap:5px;flex-wrap:wrap}
+.appellation-pill{border:1px solid #d2d2d7;background:#fff;color:#1d1d1f;border-radius:14px;padding:3px 9px;font-size:11px;font-weight:650;cursor:pointer;transition:all .15s ease}
+.appellation-pill:hover{border-color:#0071e3;color:#0071e3}
+.appellation-pill.active{background:#0071e3;border-color:#0071e3;color:#fff}
+.appellation-custom-input{max-width:100px;min-height:28px!important;padding:2px 8px!important;font-size:11px!important;border-radius:8px!important}
